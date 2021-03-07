@@ -13,12 +13,13 @@ from discord import (
     VoiceState,
 )
 
-from settings import BOT_TOKEN, ESPIONAGE_FILE
+from settings import BOT_TOKEN, ESPIONAGE_FILE, COMMANDS, FILES
 
 client = discord.Client()
 
 voice_clients: Dict[int, VoiceClient] = {}
 voice_channels: Dict[int, VoiceChannel] = {}
+voice_files: Dict[int, str] = {}
 
 
 @client.event
@@ -51,10 +52,15 @@ async def on_voice_state_update(member: Member, before: VoiceState, after: Voice
     ):
         return
 
-    await play(channel)
+    # a user joined the afk channel, reset the file
+    if member.id != client.user.id and after.afk and before.afk != after.afk:
+        voice_files.pop(guild.id, None)
+
+    file = voice_files[guild.id] if guild.id in voice_files else ESPIONAGE_FILE
+    await play(channel, file)
 
 
-async def play(channel: VoiceChannel):
+async def play(channel: VoiceChannel, file: str):
     guild: Guild = channel.guild
 
     if guild.id in voice_clients:
@@ -64,7 +70,7 @@ async def play(channel: VoiceChannel):
             await voice.move_to(channel)
         if voice.is_paused():
             print(f"? Paused on {voice.channel}")
-            await play_file(voice)
+            await play_file(voice, file)
             return
     else:
         print(f"+ Joining {channel}")
@@ -81,29 +87,36 @@ async def play(channel: VoiceChannel):
         print(f"? Unmuting self on {voice.channel}")
         await member.edit(mute=False)
 
-    await play_file(voice)
+    await play_file(voice, file)
 
 
-async def play_file(voice: VoiceClient):
+async def play_file(voice: VoiceClient, file: str):
     voice.resume()
     # not connected - disconnect and play again
     if not voice.is_connected():
         print(f"!! Not connected to {voice.channel}, reconnecting...")
         await disconnect(voice)
-        await play(voice.channel)
+        await play(voice.channel, file)
         return
 
+    guild_id: int = voice.guild.id
+
+    current_file = voice_files[guild_id] if guild_id in voice_files else None
+    voice_files[guild_id] = file
+
     while voice.is_connected():
-        print(f"> Playing on {voice.channel}")
-        if voice.is_paused():
+        file = voice_files[guild_id]
+        print(f"> Playing {file} on {voice.channel}")
+        if voice.is_paused() and file == current_file:
             voice.resume()
-        elif not voice.is_playing():
-            source = FFmpegOpusAudio(ESPIONAGE_FILE)
+        elif not voice.is_playing() or file != current_file:
+            voice.stop()
+            source = FFmpegOpusAudio(file)
             voice.play(source)
         while voice.is_playing() and voice.is_connected():
             await sleep(0.1)
         # voice.stop()
-        if len(voice.channel.voice_states) == 1:
+        if len(voice.channel.voice_states) == 1 and voice.is_connected():
             await disconnect(voice)
     # voice_clients.pop(guild.id, None)
     # voice_channels.pop(guild.id, None)
@@ -121,8 +134,12 @@ async def disconnect(voice: VoiceClient):
 async def on_message(message: Message):
     if message.author == client.user:
         return
-    if not message.content.startswith("!espionage"):
+    args: List[str] = message.content.split(" ")
+    if not args or args[0] not in COMMANDS:
         return
+
+    index = COMMANDS.index(args[0])
+    file = FILES[index]
 
     author: User = message.author
     guild: Guild = message.guild
@@ -137,7 +154,7 @@ async def on_message(message: Message):
     if not channel:
         return
 
-    await play(channel)
+    await play(channel, file)
 
 
 if __name__ == "__main__":
