@@ -1,0 +1,12 @@
+{
+  "espionage": {
+    "filename": "espionage.mp3",
+    "help": "Espionage 0.5 speed",
+    "loop": true
+  },
+  "sample1": {
+    "filename": "sample1.mp3",
+    "help": null,
+    "loop": false
+  }
+}
