@@ -171,8 +171,6 @@ class Espionage(Cog, name="Music commands"):
                 return
             if voice.is_playing() or voice.is_paused():
                 voice.stop()
-            else:
-                return
         # return if already playing
         if voice.is_playing():
             return
