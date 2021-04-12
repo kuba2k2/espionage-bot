@@ -76,9 +76,9 @@ class Espionage(Cog, name="Music commands"):
         command: Command = self.bot.command(
             name=name,
             brief=cmd["help"]
-            or (
-                f"Loop {cmd['filename']}" if cmd["loop"] else f"Play {cmd['filename']}"
-            ),
+                  or (
+                      f"Loop {cmd['filename']}" if cmd["loop"] else f"Play {cmd['filename']}"
+                  ),
         )(self.play_command)
         command.before_invoke(ensure_voice)
         command.cog = self
@@ -100,7 +100,7 @@ class Espionage(Cog, name="Music commands"):
         )
 
     async def on_voice_state_update(
-        self, member: Member, before: VoiceState, after: VoiceState
+            self, member: Member, before: VoiceState, after: VoiceState
     ):
         if member.id == self.bot.user.id:
             # the bot was moved to (or joined) the AFK channel
@@ -134,9 +134,9 @@ class Espionage(Cog, name="Music commands"):
         # for some reason this fixes silence when moving the bot
         # to an empty channel
         if (
-            member.guild.voice_client
-            and member.guild.voice_client.channel == after.channel
-            and len(after.channel.voice_states) == 2
+                member.guild.voice_client
+                and member.guild.voice_client.channel == after.channel
+                and len(after.channel.voice_states) == 2
         ):
             await self.play(
                 after.channel,
@@ -151,11 +151,11 @@ class Espionage(Cog, name="Music commands"):
         self.repeat(channel, file, loop)
 
     def repeat(
-        self,
-        channel: VoiceChannel,
-        file: str = None,
-        loop: bool = True,
-        repeated: bool = False,
+            self,
+            channel: VoiceChannel,
+            file: str = None,
+            loop: bool = True,
+            repeated: bool = False,
     ):
         # get the currently connected voice client
         voice: VoiceClient = channel.guild.voice_client
@@ -186,13 +186,14 @@ class Espionage(Cog, name="Music commands"):
         voice.play(
             source,
             after=lambda e: not loop
-            or self.repeat(channel, file=file, loop=loop, repeated=True),
+                            or self.repeat(channel, file=file, loop=loop, repeated=True),
         )
 
 
 class Uploading(Cog, name="File uploading/management"):
-    def __init__(self, bot: Bot, path: str):
+    def __init__(self, bot: Bot, files: Dict[str, dict], path: str):
         self.bot = bot
+        self.files = files
         self.path = path
 
     @commands.command()
@@ -234,6 +235,10 @@ class Uploading(Cog, name="File uploading/management"):
             "filename": filename,
             "help": f"Uploaded by {ctx.author}",
             "loop": True,
+            "author": {
+                "id": ctx.author.id,
+                "guild": ctx.guild.id,
+            }
         }
 
         # add the command to the music cog
@@ -306,10 +311,19 @@ class Uploading(Cog, name="File uploading/management"):
         if name not in files:
             await ctx.send(f"The command `!{name}` does not exist.", delete_after=3)
             return
+        can_remove = ctx.author.guild_permissions.administrator and ctx.author.guild.id == files[name]["author"][
+            "guild"]
+        can_remove = can_remove or ctx.author.id == files[name]["author"]["id"]
+        if not can_remove:
+            await ctx.send(f"Only the author of the file or an admin can remove it.", delete_after=3)
+            return
         cog.remove_command(name)
         cmd = files.pop(name, None)
         if cmd and isfile(cmd["filename"]):
             unlink(cmd["filename"])
+        # save the command descriptors
+        with open(FILES_JSON, "w") as f:
+            json.dump(files, f, indent=4)
         await ctx.send(f"Command `!{name}` removed.", delete_after=3)
 
     @commands.command()
@@ -352,9 +366,19 @@ async def on_ready():
     )
 
 
-if __name__ == "__main__":
+def main():
     with open(FILES_JSON, "r") as jf:
-        files_json = json.load(jf)
-    client.add_cog(Espionage(bot=client, files=files_json))
-    client.add_cog(Uploading(bot=client, path=UPLOAD_PATH))
+        files = json.load(jf)
+    for name in files:
+        if "author" not in files[name]:
+            files[name]["author"] = {
+                "id": 0,
+                "guild": 0,
+            }
+    client.add_cog(Espionage(bot=client, files=files))
+    client.add_cog(Uploading(bot=client, files=files, path=UPLOAD_PATH))
     client.run(BOT_TOKEN)
+
+
+if __name__ == "__main__":
+    main()
