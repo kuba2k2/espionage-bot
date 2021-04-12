@@ -234,3 +234,9 @@ dmypy.json
 .prof
 
 # End of https://www.toptal.com/developers/gitignore/api/python,dotenv,intellij+all
+
+uploads/
+*.mp3
+*.wav
+*.ogg
+files.json
