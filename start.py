@@ -1,28 +1,31 @@
 import json
 from os import unlink
 from os.path import isfile
+from random import choice as random_choice
 from time import time
 from typing import Dict
 
 from discord import (
     Activity,
     ActivityType,
+    Attachment,
+    FFmpegOpusAudio,
     Guild,
-    User,
     Member,
+    Message,
+    User,
     VoiceChannel,
     VoiceClient,
     VoiceState,
-    FFmpegOpusAudio,
-    Message,
-    Attachment,
 )
 from discord.ext import commands
-from discord.ext.commands import Cog, Context, Bot, CommandError, Command
+from discord.ext.commands import Bot, Cog, Command, CommandError, Context
 
-from settings import BOT_TOKEN, ESPIONAGE_FILE, FILES_JSON, ACTIVITY_NAME, UPLOAD_PATH
+from settings import ACTIVITY_NAME, BOT_TOKEN, ESPIONAGE_FILE, FILES_JSON, UPLOAD_PATH
 
 client = Bot(command_prefix=commands.when_mentioned_or("!"))
+
+RANDOM_FILE = "random"
 
 
 class FFmpegFileOpusAudio(FFmpegOpusAudio):
@@ -54,7 +57,7 @@ async def disconnect(voice: VoiceClient):
 
 
 async def ensure_voice(_, ctx: Context):
-    member: Member = ctx.args[2] or ctx.author
+    member: Member = len(ctx.args) > 2 and ctx.args[2] or ctx.author
     if not member.voice:
         await ctx.send(f"User is not connected to a voice channel.", delete_after=3)
         raise CommandError(f"{ctx.author} not connected to a voice channel.")
@@ -76,9 +79,9 @@ class Espionage(Cog, name="Music commands"):
         command: Command = self.bot.command(
             name=name,
             brief=cmd["help"]
-                  or (
-                      f"Loop {cmd['filename']}" if cmd["loop"] else f"Play {cmd['filename']}"
-                  ),
+            or (
+                f"Loop {cmd['filename']}" if cmd["loop"] else f"Play {cmd['filename']}"
+            ),
         )(self.play_command)
         command.before_invoke(ensure_voice)
         command.cog = self
@@ -100,7 +103,7 @@ class Espionage(Cog, name="Music commands"):
         )
 
     async def on_voice_state_update(
-            self, member: Member, before: VoiceState, after: VoiceState
+        self, member: Member, before: VoiceState, after: VoiceState
     ):
         if member.id == self.bot.user.id:
             # the bot was moved to (or joined) the AFK channel
@@ -134,9 +137,9 @@ class Espionage(Cog, name="Music commands"):
         # for some reason this fixes silence when moving the bot
         # to an empty channel
         if (
-                member.guild.voice_client
-                and member.guild.voice_client.channel == after.channel
-                and len(after.channel.voice_states) == 2
+            member.guild.voice_client
+            and member.guild.voice_client.channel == after.channel
+            and len(after.channel.voice_states) == 2
         ):
             await self.play(
                 after.channel,
@@ -144,18 +147,21 @@ class Espionage(Cog, name="Music commands"):
                 loop=True,
             )
 
-    async def play(self, channel: VoiceChannel, file: str, loop: bool):
+    async def play(
+        self, channel: VoiceChannel, file: str, loop: bool, random: bool = False
+    ):
         # connect to the specified voice channel
         await connect_to(channel)
         # repeat the file
-        self.repeat(channel, file, loop)
+        self.repeat(channel, file, loop or random, random)
 
     def repeat(
-            self,
-            channel: VoiceChannel,
-            file: str = None,
-            loop: bool = True,
-            repeated: bool = False,
+        self,
+        channel: VoiceChannel,
+        file: str = None,
+        loop: bool = True,
+        random: bool = False,
+        repeated: bool = False,
     ):
         # get the currently connected voice client
         voice: VoiceClient = channel.guild.voice_client
@@ -167,6 +173,7 @@ class Espionage(Cog, name="Music commands"):
         # the current source differs from the desired source
         if voice.source and file and voice.source.filename != file:
             # when changing the playing file avoid repeating the previous one
+            # 2021-08-28 I'm not sure what's this for; I disabled this when playing randomly
             if repeated:
                 return
             if voice.is_playing() or voice.is_paused():
@@ -182,11 +189,36 @@ class Espionage(Cog, name="Music commands"):
         # file not specified - not to change the already playing file
         if not file:
             return
-        source = FFmpegFileOpusAudio(file)
+        filename = file
+        if filename == RANDOM_FILE:
+            cmd = random_choice(list(self.files.values()))
+            filename = cmd["filename"]
+        source = FFmpegFileOpusAudio(filename)
         voice.play(
             source,
             after=lambda e: not loop
-                            or self.repeat(channel, file=file, loop=loop, repeated=True),
+            or self.repeat(
+                channel, file=file, loop=loop, random=random, repeated=not random
+            ),
+        )
+
+
+class Music(Cog, name="Other music commands"):
+    def __init__(self, bot: Bot, files: Dict[str, dict]):
+        self.bot = bot
+        self.files = files
+        self.espionage = self.bot.get_cog("Music commands")
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.before_invoke(ensure_voice)
+    async def random(self, ctx: Context):
+        """Randomly play files from the global directory."""
+        await self.espionage.play(
+            ctx.voice_client.channel,
+            file=RANDOM_FILE,
+            loop=False,
+            random=True,
         )
 
 
@@ -238,7 +270,7 @@ class Uploading(Cog, name="File uploading/management"):
             "author": {
                 "id": ctx.author.id,
                 "guild": ctx.guild.id,
-            }
+            },
         }
 
         # add the command to the music cog
@@ -311,11 +343,16 @@ class Uploading(Cog, name="File uploading/management"):
         if name not in files:
             await ctx.send(f"The command `!{name}` does not exist.", delete_after=3)
             return
-        can_remove = ctx.author.guild_permissions.administrator and ctx.author.guild.id == files[name]["author"][
-            "guild"]
+        can_remove = (
+            ctx.author.guild_permissions.administrator
+            and ctx.author.guild.id == files[name]["author"]["guild"]
+        )
         can_remove = can_remove or ctx.author.id == files[name]["author"]["id"]
         if not can_remove:
-            await ctx.send(f"Only the author of the file or an admin can remove it.", delete_after=3)
+            await ctx.send(
+                f"Only the author of the file or an admin can remove it.",
+                delete_after=3,
+            )
             return
         cog.remove_command(name)
         cmd = files.pop(name, None)
@@ -376,6 +413,7 @@ def main():
                 "guild": 0,
             }
     client.add_cog(Espionage(bot=client, files=files))
+    client.add_cog(Music(bot=client, files=files))
     client.add_cog(Uploading(bot=client, files=files, path=UPLOAD_PATH))
     client.run(BOT_TOKEN)
 
