@@ -7,7 +7,7 @@ from discord import Attachment, Message
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Context
 
-from settings import COG_UPLOADING
+from settings import COG_ESPIONAGE, COG_UPLOADING
 from utils import save_files
 
 

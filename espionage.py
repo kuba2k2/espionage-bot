@@ -6,7 +6,14 @@ from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Command, Context
 
 from settings import ESPIONAGE_FILE, RANDOM_FILE
-from utils import FFmpegFileOpusAudio, connect_to, disconnect, ensure_voice, is_alone
+from utils import (
+    FFmpegFileOpusAudio,
+    FFmpegMidiOpusAudio,
+    connect_to,
+    disconnect,
+    ensure_voice,
+    is_alone,
+)
 
 
 class Espionage(Cog, name="Music commands"):
@@ -146,5 +153,8 @@ class Espionage(Cog, name="Music commands"):
             print(f"Repeat file={file}, loop={loop}, e={e}")
             self.repeat(channel, file=file, loop=loop, repeated=True)
 
-        source = FFmpegFileOpusAudio(filename)
+        if filename[-4:] == ".mid":
+            source = FFmpegMidiOpusAudio(filename, "soundfont.sf2")
+        else:
+            source = FFmpegFileOpusAudio(filename)
         voice.play(source, after=loop and repeat or leave)

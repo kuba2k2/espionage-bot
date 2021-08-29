@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from typing import Dict
 
 from discord import FFmpegOpusAudio, Guild, Member, VoiceChannel, VoiceClient
@@ -6,11 +8,41 @@ from discord.ext.commands import CommandError, Context
 
 from settings import FILES_JSON
 
+if sys.platform != "win32":
+    CREATE_NO_WINDOW = 0
+else:
+    CREATE_NO_WINDOW = 0x08000000
+
 
 class FFmpegFileOpusAudio(FFmpegOpusAudio):
     def __init__(self, filename: str, *args, **kwargs):
         self.filename = filename
         super().__init__(filename, *args, **kwargs)
+
+
+class FFmpegMidiOpusAudio(FFmpegOpusAudio):
+    def __init__(self, filename: str, soundfont: str, *args, **kwargs):
+        self.filename = filename
+        self.soundfont = soundfont
+        super().__init__("-", before_options="-f s32le", *args, **kwargs)
+
+    def _spawn_process(self, args, **subprocess_kwargs):
+        process = None
+        try:
+            cmdline = " ".join(args)
+            cmdline = f"fluidsynth -a alsa -T raw -F - {self.soundfont} {self.filename} | {cmdline}"
+            process = subprocess.Popen(
+                cmdline, creationflags=CREATE_NO_WINDOW, shell=True, **subprocess_kwargs
+            )
+        except FileNotFoundError:
+            executable = args.partition(" ")[0] if isinstance(args, str) else args[0]
+            raise ClientException(executable + " was not found.") from None
+        except subprocess.SubprocessError as exc:
+            raise ClientException(
+                "Popen failed: {0.__class__.__name__}: {0}".format(exc)
+            ) from exc
+        else:
+            return process
 
 
 async def connect_to(channel: VoiceChannel) -> VoiceClient:
