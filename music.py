@@ -20,6 +20,5 @@ class Music(Cog, name=COG_MUSIC):
         """Randomly play files from the global directory."""
         await self.espionage.play(
             ctx.voice_client.channel,
-            file=RANDOM_FILE,
-            loop=True,
+            cmd=RANDOM_FILE,
         )

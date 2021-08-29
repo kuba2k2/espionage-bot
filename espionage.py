@@ -1,5 +1,6 @@
+import asyncio
 from random import choice as random_choice
-from typing import Dict
+from typing import Dict, Union
 
 from discord import Member, User, VoiceChannel, VoiceClient, VoiceState
 from discord.ext import commands
@@ -50,8 +51,7 @@ class Espionage(Cog, name="Music commands"):
         # force playing the specified file
         await self.play(
             ctx.voice_client.channel,
-            file=cmd["filename"],
-            loop=cmd["loop"],
+            cmd=cmd,
         )
 
     async def on_voice_state_update(
@@ -80,8 +80,7 @@ class Espionage(Cog, name="Music commands"):
             # play the default file or leave the currently playing file
             await self.play(
                 member.voice.channel,
-                file=ESPIONAGE_FILE if not member.guild.voice_client else None,
-                loop=True,
+                cmd=ESPIONAGE_FILE if not member.guild.voice_client else None,
             )
             return
 
@@ -95,21 +94,19 @@ class Espionage(Cog, name="Music commands"):
         ):
             await self.play(
                 after.channel,
-                file=None,
-                loop=True,
+                cmd=None,
             )
 
-    async def play(self, channel: VoiceChannel, file: str, loop: bool):
+    async def play(self, channel: VoiceChannel, cmd: Union[str, dict]):
         # connect to the specified voice channel
         await connect_to(channel)
         # repeat the file
-        self.repeat(channel, file, loop)
+        self.repeat(channel, cmd)
 
     def repeat(
         self,
         channel: VoiceChannel,
-        file: str,
-        loop: bool,
+        cmd: Union[str, dict],
         repeated: bool = False,
     ):
         # get the currently connected voice client
@@ -119,14 +116,29 @@ class Espionage(Cog, name="Music commands"):
         if not voice:
             return
 
+        # store cmd for usage in repeat(e)
+        cmd_orig = cmd
+        # to simplify the checks below
+        random = cmd == RANDOM_FILE
+        # "random" specified as cmd, change to a random command dict
+        if random:
+            cmd = random_choice(list(self.files.values()))
+
+        # set the appropriate filename and loop mode
+        if isinstance(cmd, dict):
+            filename = cmd["filename"]
+            loop = cmd["loop"] or random
+        else:
+            filename = cmd
+            loop = True
+
         # the current source differs from the desired source
-        if voice.source and file and voice.source.filename != file:
+        if voice.source and cmd and voice.source.filename != filename:
             # avoid going back to the previous file again when repeat() is called
             # from after= in voice.play()
             if repeated and voice.is_playing():
                 return
             if voice.is_playing() or voice.is_paused():
-                print(f"Stopping file={file}")
                 voice.stop()
         # return if already playing
         if voice.is_playing():
@@ -137,21 +149,15 @@ class Espionage(Cog, name="Music commands"):
             return
 
         # file not specified - not to change the already playing file
-        if not file:
+        # this line is not above probably to voice.resume() if paused
+        if not cmd:
             return
 
-        random = file == RANDOM_FILE
-        filename = file
-        if random:
-            cmd = random_choice(list(self.files.values()))
-            filename = cmd["filename"]
-
         def leave(e):
-            print(f"Leave file={file}, loop={loop}, e={e}")
+            self.bot.loop.create_task(disconnect(voice))
 
         def repeat(e):
-            print(f"Repeat file={file}, loop={loop}, e={e}")
-            self.repeat(channel, file=file, loop=loop, repeated=True)
+            self.repeat(channel, cmd=cmd_orig, repeated=True)
 
         if filename[-4:] == ".mid":
             source = FFmpegMidiOpusAudio(filename, "soundfont.sf2")
