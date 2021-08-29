@@ -147,20 +147,17 @@ class Espionage(Cog, name="Music commands"):
                 loop=True,
             )
 
-    async def play(
-        self, channel: VoiceChannel, file: str, loop: bool, random: bool = False
-    ):
+    async def play(self, channel: VoiceChannel, file: str, loop: bool):
         # connect to the specified voice channel
         await connect_to(channel)
         # repeat the file
-        self.repeat(channel, file, loop or random, random)
+        self.repeat(channel, file, loop)
 
     def repeat(
         self,
         channel: VoiceChannel,
-        file: str = None,
-        loop: bool = True,
-        random: bool = False,
+        file: str,
+        loop: bool,
         repeated: bool = False,
     ):
         # get the currently connected voice client
@@ -189,18 +186,21 @@ class Espionage(Cog, name="Music commands"):
         # file not specified - not to change the already playing file
         if not file:
             return
+
+        random = file == RANDOM_FILE
         filename = file
-        if filename == RANDOM_FILE:
+        if random:
             cmd = random_choice(list(self.files.values()))
             filename = cmd["filename"]
+
+        def leave(e):
+            print("Should leave now")
+
+        def repeat(e):
+            self.repeat(channel, file=file, loop=loop, repeated=not random)
+
         source = FFmpegFileOpusAudio(filename)
-        voice.play(
-            source,
-            after=lambda e: not loop
-            or self.repeat(
-                channel, file=file, loop=loop, random=random, repeated=not random
-            ),
-        )
+        voice.play(source, after=loop and repeat or leave)
 
 
 class Music(Cog, name="Other music commands"):
@@ -217,8 +217,7 @@ class Music(Cog, name="Other music commands"):
         await self.espionage.play(
             ctx.voice_client.channel,
             file=RANDOM_FILE,
-            loop=False,
-            random=True,
+            loop=True,
         )
 
 
