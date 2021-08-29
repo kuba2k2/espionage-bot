@@ -1,10 +1,13 @@
 import json
 import subprocess
 import sys
+from os import mkdir
+from os.path import isdir
 from typing import Dict
 
 from discord import FFmpegOpusAudio, Guild, Member, VoiceChannel, VoiceClient
 from discord.ext.commands import CommandError, Context
+from magic import Magic
 
 from settings import FILES_JSON
 
@@ -12,6 +15,18 @@ if sys.platform != "win32":
     CREATE_NO_WINDOW = 0
 else:
     CREATE_NO_WINDOW = 0x08000000
+
+archive_mimetypes = [
+    "application/zip",
+    "application/x-rar-compressed",
+    "application/x-7z-compressed",
+    "application/x-tar",
+    "application/gzip",
+    "application/x-gtar",
+]
+
+magic_mime = Magic(mime=True)
+magic_text = Magic(mime=False)
 
 
 class FFmpegFileOpusAudio(FFmpegOpusAudio):
@@ -57,7 +72,7 @@ async def connect_to(channel: VoiceChannel) -> VoiceClient:
     return voice
 
 
-def is_alone(voice: VoiceClient):
+def is_alone(voice: VoiceClient) -> bool:
     if not voice:
         return False
     return len(voice.channel.voice_states) <= 1
@@ -73,6 +88,43 @@ async def ensure_voice(_, ctx: Context):
         await ctx.send(f"User is not connected to a voice channel.", delete_after=3)
         raise CommandError(f"{ctx.author} not connected to a voice channel.")
     await connect_to(member.voice.channel)
+
+
+async def ensure_can_modify(ctx: Context, cmd: dict):
+    can_remove = ctx.author.id == cmd["author"]["id"]
+    can_remove = (
+        can_remove
+        or ctx.author.guild.id == cmd["author"]["guild"]
+        and ctx.author.guild_permissions.administrator
+    )
+    if not can_remove:
+        await ctx.send(
+            f"Only the author of the file or an admin can modify/remove it.",
+            delete_after=3,
+        )
+        raise CommandError(f"File {cmd} is not modifiable by {ctx.author}")
+
+
+async def ensure_command(ctx: Context, name: str, files: Dict[str, dict]) -> dict:
+    if name not in files:
+        await ctx.send(f"The command `!{name}` does not exist.", delete_after=3)
+        raise CommandError(f"No such command: {name}")
+    return files[name]
+
+
+def pack_dirname(filename: str) -> str:
+    dirname = filename.rpartition(".")[0] or filename
+    if dirname == filename:
+        dirname += "_pack"
+    if not isdir(dirname):
+        mkdir(dirname)
+    return dirname
+
+
+def filetype(filename: str) -> str:
+    mime = magic_mime.from_file(filename)
+    text = magic_text.from_file(filename)
+    return (mime, text)
 
 
 def load_files() -> Dict[str, dict]:

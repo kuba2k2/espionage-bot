@@ -1,4 +1,5 @@
 import asyncio
+from glob import glob
 from random import choice as random_choice
 from typing import Dict, Union
 
@@ -29,12 +30,16 @@ class Espionage(Cog, name="Music commands"):
         if self.bot.get_command(name):
             return
         cmd = self.files[name]
+        description = cmd["help"]
+        if "pack" in cmd and cmd["pack"]:
+            description = f"\ud83d\udcc1 {description}"
+        if not description:
+            description = (
+                f"Loop {cmd['filename']}" if cmd["loop"] else f"Play {cmd['filename']}"
+            )
         command: Command = self.bot.command(
             name=name,
-            brief=cmd["help"]
-            or (
-                f"Loop {cmd['filename']}" if cmd["loop"] else f"Play {cmd['filename']}"
-            ),
+            brief=description,
         )(self.play_command)
         command.before_invoke(ensure_voice)
         command.cog = self
@@ -127,13 +132,27 @@ class Espionage(Cog, name="Music commands"):
         # set the appropriate filename and loop mode
         if isinstance(cmd, dict):
             filename = cmd["filename"]
-            loop = cmd["loop"] or random
+            pack = "pack" in cmd and cmd["pack"]
+            if pack:
+                filename = random_choice(glob(f"{filename}/*"))
+            loop = cmd["loop"] or random or pack
         else:
             filename = cmd
             loop = True
 
+        def leave(e):
+            self.bot.loop.create_task(disconnect(voice))
+
+        def repeat(e):
+            self.repeat(channel, cmd=cmd_orig, repeated=True)
+
+        # fix for disabling !loop while playing
+        if repeated and not loop:
+            leave(None)
+            return
+
         # the current source differs from the desired source
-        if voice.source and cmd and voice.source.filename != filename:
+        if voice.source and cmd and (voice.source.filename != filename or random):
             # avoid going back to the previous file again when repeat() is called
             # from after= in voice.play()
             if repeated and voice.is_playing():
@@ -152,12 +171,6 @@ class Espionage(Cog, name="Music commands"):
         # this line is not above probably to voice.resume() if paused
         if not cmd:
             return
-
-        def leave(e):
-            self.bot.loop.create_task(disconnect(voice))
-
-        def repeat(e):
-            self.repeat(channel, cmd=cmd_orig, repeated=True)
 
         if filename[-4:] == ".mid":
             source = FFmpegMidiOpusAudio(filename, "soundfont.sf2")

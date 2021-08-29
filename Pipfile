@@ -7,8 +7,10 @@ verify_ssl = true
 
 [packages]
 discord = "*"
-"discord.py" = {extras = ["voice"], version = "*"}
+"discord.py" = {extras = ["voice"],version = "*"}
 python-dotenv = "*"
+python-magic = "*"
+patool = "*"
 
 [requires]
 python_version = "3.8"

@@ -1,14 +1,24 @@
+import os
 from os import unlink
-from os.path import isfile
+from os.path import isdir, isfile
+from shutil import rmtree
 from time import time
 from typing import Dict
 
+import patoolib
 from discord import Attachment, Message
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Context
 
 from settings import COG_ESPIONAGE, COG_UPLOADING
-from utils import save_files
+from utils import (
+    archive_mimetypes,
+    ensure_can_modify,
+    ensure_command,
+    filetype,
+    pack_dirname,
+    save_files,
+)
 
 
 class Uploading(Cog, name=COG_UPLOADING):
@@ -16,105 +26,164 @@ class Uploading(Cog, name=COG_UPLOADING):
         self.bot = bot
         self.files = files
         self.path = path
+        self.espionage = self.bot.get_cog(COG_ESPIONAGE)
 
     @commands.command()
     @commands.guild_only()
-    async def upload(self, ctx: Context, name: str = None):
-        """Upload the attached file as a command."""
-        message: Message = ctx.message
+    async def pack(self, ctx: Context, name: str = None):
+        """Change the command to be a music pack."""
         if not name:
-            await ctx.send(
-                "Usage: `!upload <command name>`. Attach one audio file.",
-                delete_after=3,
-            )
+            await ctx.send("Usage: `!pack <command name>`.", delete_after=3)
             return
-        if len(message.attachments) != 1:
-            await ctx.send("You must add exactly one attachment.", delete_after=3)
+
+        # get the command or raise an error
+        cmd = await ensure_command(ctx, name, self.files)
+        await ensure_can_modify(ctx, cmd)
+
+        pack = "pack" in cmd and cmd["pack"]
+        if pack:
+            await ctx.send(f"`!{name}` is already a music pack.", delete_after=3)
             return
-        attachment: Attachment = message.attachments[0]
 
-        espionage: Espionage = self.bot.get_cog(COG_ESPIONAGE)
-        if not espionage:
-            return
-        files = espionage.files
+        # TODO handle situation when the file is currently playing
+        # thus used by FFmpeg and may be locked
 
-        replaced = False
-        # delete the already existing file
-        if self.bot.get_command(name):
-            replaced = True
-            unlink(files[name]["filename"])
+        dirname = pack_dirname(f"{self.path}/{int(time())}_{name}")
+        filename = cmd["filename"].rpartition("/")[2]
+        filename = f"{dirname}/{filename}"
+        os.replace(cmd["filename"], filename)
 
-        # create a safe filename
-        filename = f"{self.path}/{int(time())}_{attachment.filename}"
+        cmd["filename"] = dirname
+        cmd["pack"] = True
 
-        # save the attachment
-        with open(filename, "wb") as f:
-            await attachment.save(f)
+        # remove the command to update help text
+        self.espionage.remove_command(name)
+        self.espionage.add_command(name)
 
-        # replace the command descriptor
-        files[name] = {
-            "filename": filename,
-            "help": f"Uploaded by {ctx.author}",
-            "loop": True,
-            "author": {
-                "id": ctx.author.id,
-                "guild": ctx.guild.id,
-            },
-        }
-
-        # add the command to the music cog
-        espionage.add_command(name)
         # save the command descriptors
-        save_files(files)
-
+        save_files(self.files)
         await ctx.send(
-            f"File **{attachment.filename}** uploaded as `!{name}`."
-            if not replaced
-            else f"Replaced `!{name}` with **{attachment.filename}**.",
+            f"Converted `!{name}` as a music pack. Try uploading more files with `!upload {name}`.",
             delete_after=10,
         )
 
     @commands.command()
     @commands.guild_only()
-    async def eloop(self, ctx: Context, name: str = None):
-        """Enable looping of the specified audio."""
+    async def upload(self, ctx: Context, name: str = None):
+        """Upload the attached file(s) as a command."""
+        message: Message = ctx.message
         if not name:
-            await ctx.send("Usage: `!enoloop <command name>`.", delete_after=3)
+            await ctx.send(
+                "Usage: `!upload <command name>`. Attach at least one audio file.",
+                delete_after=3,
+            )
             return
-        if not self.set_loop(name, True):
-            await ctx.send(f"The command `!{name}` does not exist.", delete_after=3)
-            return
-        await ctx.send(f"Looping enabled for `!{name}`.", delete_after=3)
 
-    @commands.command()
-    @commands.guild_only()
-    async def enoloop(self, ctx: Context, name: str = None):
-        """Disable looping of the specified audio."""
-        if not name:
-            await ctx.send("Usage: `!enoloop <command name>`.", delete_after=3)
+        if len(message.attachments) == 0:
+            await ctx.send("You must add at least one attachment.", delete_after=3)
             return
-        if not self.set_loop(name, False):
-            await ctx.send(f"The command `!{name}` does not exist.", delete_after=3)
-            return
-        await ctx.send(f"Looping disabled for `!{name}`.", delete_after=3)
 
-    def set_loop(self, name: str, loop: bool) -> bool:
-        espionage: Espionage = self.bot.get_cog(COG_ESPIONAGE)
-        if not espionage:
-            return
-        files = espionage.files
+        cmd = None
+        pack = False
+        existing = False
+        count = len(message.attachments)
+        extracted_count = 0
+        invalid_count = 0
+        invalid_name = ""
 
-        if name not in files:
-            return False
+        # replace the command or add to a pack
+        if name in self.files:
+            cmd = self.files[name]
+            pack = "pack" in cmd and cmd["pack"]
+            existing = True
+            if not pack:
+                ensure_can_modify(ctx, cmd)
+                unlink(cmd["filename"])
 
-        if files[name]["loop"] != loop:
-            files[name]["loop"] = loop
-            # remove the command to update help text
-            espionage.remove_command(name)
-            espionage.add_command(name)
-            # save the command descriptors
-            save_files(files)
-        return True
+        pack = pack or len(message.attachments) > 1
+
+        if pack:
+            if cmd:
+                # store to an existing pack
+                dirname = cmd["filename"]
+            else:
+                # create a new pack
+                dirname = pack_dirname(f"{self.path}/{int(time())}_{name}")
+        else:
+            # store directly to uploads
+            dirname = self.path
+
+        # save all attachments
+        for attachment in message.attachments:
+            # create a safe filename
+            filename = f"{dirname}/{int(time())}_{attachment.filename}"
+            # save the attachment
+            with open(filename, "wb") as f:
+                await attachment.save(f)
+
+            mime_type, mime_text = filetype(filename)
+            audio = mime_type.startswith("audio/")
+            video = mime_type.startswith("video/")
+            archive = mime_type in archive_mimetypes
+
+            if archive:
+                # create a new pack
+                if not pack:
+                    dirname = pack_dirname(filename)
+                    pack = True
+                # unpack the archive
+                # TODO count extracted files
+                # extracted_count += len(patoolib.list_archive(filename))
+                patoolib.extract_archive(filename, outdir=dirname)
+                # delete the archive
+                unlink(filename)
+            elif not audio and not video:
+                invalid_count += 1
+                invalid_name = attachment.filename
+                if count == 1:
+                    await ctx.send(
+                        f"Unrecognized file: **{attachment.filename}**", delete_after=3
+                    )
+                    unlink(filename)
+                    return
+
+        if not pack or not existing:
+            # store/replace the command descriptor
+            cmd = {
+                "filename": filename if not pack else dirname,
+                "help": f"Uploaded by {ctx.author}",
+                "loop": True,
+                "author": {
+                    "id": ctx.author.id,
+                    "guild": ctx.guild.id,
+                },
+            }
+            if pack:
+                cmd["pack"] = True
+            self.files[name] = cmd
+
+        # add the command to the music cog
+        self.espionage.add_command(name)
+        # save the command descriptors
+        save_files(self.files)
+
+        count += extracted_count
+        count -= invalid_count
+        if pack and existing and count == 1:
+            text = f"Added **{attachment.filename}** to `!{name}`."
+        elif count > 1:
+            text = f"Uploaded **{count}** file(s) to `!{name}`."
+        elif not existing:
+            text = f"File **{attachment.filename}** uploaded as `!{name}`."
+        else:
+            text = f"Replaced `!{name}` with **{attachment.filename}**."
+
+        if invalid_count == 1:
+            text += f"\nFile **{invalid_name}** was unrecognized."
+        elif invalid_count:
+            text += f"\n**{invalid_count}** file(s) were unrecognized."
+
+        await ctx.send(text, delete_after=10)
 
     @commands.command()
     @commands.guild_only()
@@ -123,30 +192,21 @@ class Uploading(Cog, name=COG_UPLOADING):
         if not name:
             await ctx.send("Usage: `!aremove <command name>`.", delete_after=3)
             return
-        espionage: Espionage = self.bot.get_cog(COG_ESPIONAGE)
-        if not espionage:
-            return
-        files = espionage.files
-        if name not in files:
-            await ctx.send(f"The command `!{name}` does not exist.", delete_after=3)
-            return
-        can_remove = (
-            ctx.author.guild_permissions.administrator
-            and ctx.author.guild.id == files[name]["author"]["guild"]
-        )
-        can_remove = can_remove or ctx.author.id == files[name]["author"]["id"]
-        if not can_remove:
-            await ctx.send(
-                f"Only the author of the file or an admin can remove it.",
-                delete_after=3,
-            )
-            return
-        espionage.remove_command(name)
-        cmd = files.pop(name, None)
-        if cmd and isfile(cmd["filename"]):
-            unlink(cmd["filename"])
+
+        # get the command or raise an error
+        cmd = await ensure_command(ctx, name, self.files)
+        await ensure_can_modify(ctx, cmd)
+        # remove the command
+        self.espionage.remove_command(name)
+        self.files.pop(name, None)
+        filename = cmd["filename"]
+        if isfile(filename):
+            unlink(filename)
+        elif isdir(filename):
+            rmtree(filename)
+
         # save the command descriptors
-        save_files(files)
+        save_files(self.files)
         await ctx.send(f"Command `!{name}` removed.", delete_after=3)
 
     @commands.command()
@@ -159,19 +219,17 @@ class Uploading(Cog, name=COG_UPLOADING):
                 "Usage: `!description <command name> <description>`.", delete_after=3
             )
             return
-        espionage: Espionage = self.bot.get_cog(COG_ESPIONAGE)
-        if not espionage:
-            return
-        files = espionage.files
-        if name not in files:
-            await ctx.send(f"The command `!{name}` does not exist.", delete_after=3)
-            return
-        files[name]["help"] = description
+
+        # get the command or raise an error
+        cmd = await ensure_command(ctx, name, self.files)
+        await ensure_can_modify(ctx, cmd)
         # remove the command to update help text
-        espionage.remove_command(name)
-        espionage.add_command(name)
+        self.espionage.remove_command(name)
+        cmd["help"] = description
+        self.espionage.add_command(name)
+
         # save the command descriptors
-        save_files(files)
+        save_files(self.files)
         await ctx.send(
             f"Description of `!{name}` set to `{description}`.", delete_after=3
         )
