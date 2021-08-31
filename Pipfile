@@ -12,6 +12,7 @@ python-dotenv = "*"
 python-magic = "*"
 patool = "*"
 python-magic-bin = {version = "*",sys_platform = "== 'win32'"}
+sf2utils = "*"
 
 [requires]
 python_version = "3.8"

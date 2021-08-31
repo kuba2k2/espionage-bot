@@ -240,3 +240,4 @@ uploads/
 *.wav
 *.ogg
 files.json
+soundfonts.json

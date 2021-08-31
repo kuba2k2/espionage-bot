@@ -7,6 +7,7 @@ load_dotenv(encoding="utf-8")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ESPIONAGE_FILE = os.getenv("ESPIONAGE_FILE")
 FILES_JSON = os.getenv("FILES_JSON")
+SF2S_JSON = os.getenv("SF2S_JSON") or "soundfonts.json"
 ACTIVITY_NAME = os.getenv("ACTIVITY_NAME")
 UPLOAD_PATH = os.getenv("UPLOAD_PATH")
 

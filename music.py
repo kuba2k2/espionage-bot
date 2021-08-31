@@ -8,9 +8,10 @@ from utils import ensure_voice, save_files
 
 
 class Music(Cog, name=COG_MUSIC):
-    def __init__(self, bot: Bot, files: Dict[str, dict]):
+    def __init__(self, bot: Bot, files: Dict[str, dict], sf2s: Dict[str, str]):
         self.bot = bot
         self.files = files
+        self.sf2s = sf2s
         self.espionage = self.bot.get_cog(COG_ESPIONAGE)
 
     @commands.command()

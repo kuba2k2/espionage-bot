@@ -18,9 +18,10 @@ from utils import (
 
 
 class Espionage(Cog, name="Music commands"):
-    def __init__(self, bot: Bot, files: Dict[str, dict]):
+    def __init__(self, bot: Bot, files: Dict[str, dict], sf2s: Dict[str, str]):
         self.bot = bot
         self.files = files
+        self.sf2s = sf2s
         self.bot.event(self.on_voice_state_update)
         for name in files.keys():
             self.add_command(name)

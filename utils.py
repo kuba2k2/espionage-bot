@@ -2,7 +2,7 @@ import json
 import subprocess
 import sys
 from os import mkdir
-from os.path import isdir
+from os.path import isdir, isfile
 from shlex import quote
 from typing import Dict, Tuple
 
@@ -17,7 +17,7 @@ from discord import (
 from discord.ext.commands import CommandError, Context
 
 from magic import Magic
-from settings import FILES_JSON
+from settings import FILES_JSON, SF2S_JSON
 
 if sys.platform != "win32":
     CREATE_NO_WINDOW = 0
@@ -146,6 +146,8 @@ def check_file(filename: str) -> Tuple[bool, bool, bool, bool, bool]:
 
 
 def load_files() -> Dict[str, dict]:
+    if not isfile(FILES_JSON):
+        return {}
     with open(FILES_JSON, "r") as f:
         files = json.load(f)
     return files
@@ -154,3 +156,16 @@ def load_files() -> Dict[str, dict]:
 def save_files(files: Dict[str, dict]):
     with open(FILES_JSON, "w") as f:
         json.dump(files, f, indent=4)
+
+
+def load_sf2s() -> Dict[str, dict]:
+    if not isfile(SF2S_JSON):
+        return {}
+    with open(SF2S_JSON, "r") as f:
+        sf2s = json.load(f)
+    return sf2s
+
+
+def save_sf2s(sf2s: Dict[str, dict]):
+    with open(SF2S_JSON, "w") as f:
+        json.dump(sf2s, f, indent=4)

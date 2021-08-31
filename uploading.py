@@ -12,19 +12,24 @@ from discord.ext.commands import Bot, Cog, Context
 
 import patoolib
 from settings import COG_ESPIONAGE, COG_UPLOADING
+from sf2utils.sf2parse import Sf2File
 from utils import (
     check_file,
     ensure_can_modify,
     ensure_command,
     pack_dirname,
     save_files,
+    save_sf2s,
 )
 
 
 class Uploading(Cog, name=COG_UPLOADING):
-    def __init__(self, bot: Bot, files: Dict[str, dict], path: str):
+    def __init__(
+        self, bot: Bot, files: Dict[str, dict], sf2s: Dict[str, str], path: str
+    ):
         self.bot = bot
         self.files = files
+        self.sf2s = sf2s
         self.path = path
         self.espionage = self.bot.get_cog(COG_ESPIONAGE)
 
@@ -182,13 +187,49 @@ class Uploading(Cog, name=COG_UPLOADING):
                         invalid_name = filename
                 # delete the temporary directory
                 rmtree(dirname_tmp)
+
             # save audio/video files
             elif audvid:
                 saved_count += 1
                 saved_name = attachment.filename
+
             # save soundfonts only with single file
-            elif soundfont and single:
-                pass
+            elif soundfont and single and not existing:
+                # find a soundfont with this name
+                if name in self.sf2s:
+                    sf2 = self.sf2s[name]
+                    await ensure_can_modify(ctx, sf2)
+                    # unlink to replace with another
+                    unlink(sf2["filename"])
+
+                with open(filename, "rb") as f:
+                    sf2 = Sf2File(f)
+
+                sf2_name = (
+                    sf2.raw.info[b"INAM"]
+                    if b"INAM" in sf2.raw.info
+                    else attachment.filename
+                )
+                if isinstance(sf2_name, bytes):
+                    sf2_name = sf2_name.replace(b"\x00", b"").decode().strip()
+
+                sf2 = {
+                    "filename": filename,
+                    "help": sf2_name,
+                    "author": {
+                        "id": ctx.author.id,
+                        "guild": ctx.guild.id,
+                    },
+                }
+
+                self.sf2s[name] = sf2
+                save_sf2s(self.sf2s)
+                await ctx.send(
+                    f"Added **{sf2_name}**! Use `!sf <midi name> {name}` to apply the SoundFont.",
+                    delete_after=10,
+                )
+                return
+
             # discard everything else
             else:
                 invalid_count += 1
@@ -224,6 +265,8 @@ class Uploading(Cog, name=COG_UPLOADING):
             cmd["pack"] = True
         if midi:
             cmd["midi"] = True
+            if "sf2s" not in cmd:
+                cmd["sf2s"] = []
         if video:
             cmd["video"] = True
         self.files[name] = cmd
