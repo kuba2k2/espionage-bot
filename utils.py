@@ -3,6 +3,7 @@ import subprocess
 import sys
 from os import mkdir
 from os.path import isdir
+from shlex import quote
 from typing import Dict
 
 from discord import FFmpegOpusAudio, Guild, Member, VoiceChannel, VoiceClient
@@ -45,7 +46,7 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
         process = None
         try:
             cmdline = " ".join(args)
-            cmdline = f"fluidsynth -a alsa -T raw -F - {self.soundfont} {self.filename} | {cmdline}"
+            cmdline = f"fluidsynth -a alsa -T raw -F - {quote(self.soundfont)} {quote(self.filename)} | {cmdline}"
             process = subprocess.Popen(
                 cmdline, creationflags=CREATE_NO_WINDOW, shell=True, **subprocess_kwargs
             )

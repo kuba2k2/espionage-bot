@@ -1,9 +1,10 @@
 import os
-from os import unlink
+from os import mkdir, unlink
 from os.path import isdir, isfile
+from pathlib import Path
 from shutil import rmtree
 from time import time
-from typing import Dict
+from typing import Dict, Tuple
 
 import patoolib
 from discord import Attachment, Message
@@ -67,6 +68,15 @@ class Uploading(Cog, name=COG_UPLOADING):
             delete_after=10,
         )
 
+    def check_file(self, filename: str) -> Tuple[bool, bool, bool, bool, bool]:
+        mime_type, mime_text = filetype(filename)
+        audio = mime_type.startswith("audio/")
+        video = mime_type.startswith("video/")
+        archive = mime_type in archive_mimetypes
+        soundfont = "SoundFont/Bank" in mime_text
+        midi = "audio/midi" == mime_type
+        return (audio or video, archive, soundfont, midi, video)
+
     @commands.command()
     @commands.guild_only()
     async def upload(self, ctx: Context, name: str = None):
@@ -83,11 +93,18 @@ class Uploading(Cog, name=COG_UPLOADING):
             await ctx.send("You must add at least one attachment.", delete_after=3)
             return
 
+        # helper variables for the process
         cmd = None
+
         pack = False
         existing = False
         count = len(message.attachments)
-        extracted_count = 0
+        single = count == 1
+        midi = False
+        video = False
+
+        saved_count = 0
+        saved_name = ""
         invalid_count = 0
         invalid_name = ""
 
@@ -95,22 +112,29 @@ class Uploading(Cog, name=COG_UPLOADING):
         if name in self.files:
             cmd = self.files[name]
             pack = "pack" in cmd and cmd["pack"]
+            midi = "midi" in cmd and cmd["midi"]
+            video = "video" in cmd and cmd["video"]
             existing = True
             if not pack:
+                # require permissions to replace a file
                 ensure_can_modify(ctx, cmd)
-                unlink(cmd["filename"])
+                # cannot replace single with multiple files
+                if not single:
+                    await ctx.send(f"Use `!pack {name}` first.", delete_after=3)
+                    return
 
-        pack = pack or len(message.attachments) > 1
+        # enable pack for multiple attachments
+        pack = pack or not single
 
         if pack:
-            if cmd:
+            if existing:
                 # store to an existing pack
                 dirname = cmd["filename"]
             else:
                 # create a new pack
                 dirname = pack_dirname(f"{self.path}/{int(time())}_{name}")
         else:
-            # store directly to uploads
+            # single file - store directly to uploads
             dirname = self.path
 
         # save all attachments
@@ -121,34 +145,78 @@ class Uploading(Cog, name=COG_UPLOADING):
             with open(filename, "wb") as f:
                 await attachment.save(f)
 
-            mime_type, mime_text = filetype(filename)
-            audio = mime_type.startswith("audio/")
-            video = mime_type.startswith("video/")
-            archive = mime_type in archive_mimetypes
+            (audvid, archive, soundfont, midi1, video1) = self.check_file(filename)
+            midi = midi or midi1
+            video = video or video1
 
+            # save all files from the archive
             if archive:
-                # create a new pack
                 if not pack:
-                    dirname = pack_dirname(filename)
+                    # cannot replace single with multiple files
+                    if existing:
+                        await ctx.send(f"Use `!pack {name}` first.", delete_after=3)
+                        unlink(filename)
+                        return
+                    # create a new pack
                     pack = True
+                    dirname = pack_dirname(filename)
+                # prepare a temporary directory
+                dirname_tmp = f"{dirname}_tmp"
+                if not isdir(dirname_tmp):
+                    mkdir(dirname_tmp)
                 # unpack the archive
-                # TODO count extracted files
-                # extracted_count += len(patoolib.list_archive(filename))
-                patoolib.extract_archive(filename, outdir=dirname)
-                # delete the archive
+                patoolib.extract_archive(filename, outdir=dirname_tmp)
                 unlink(filename)
-            elif not audio and not video:
+                # search for compatible files
+                for path in Path(dirname_tmp).rglob("*"):
+                    path = str(path)
+                    filename = path.rpartition("/")[2]
+                    if not isfile(path):
+                        continue
+
+                    (audvid, archive, soundfont, midi1, video1) = self.check_file(path)
+                    midi = midi or midi1
+                    video = video or video1
+
+                    if audvid:
+                        filename = f"{dirname}/{filename}"
+                        os.replace(path, filename)
+                        saved_count += 1
+                        saved_name = filename
+                    # elif soundfont:
+                    #     pass
+                    else:
+                        invalid_count += 1
+                        invalid_name = filename
+                # delete the temporary directory
+                rmtree(dirname_tmp)
+            # save audio/video files
+            elif audvid:
+                saved_count += 1
+                saved_name = attachment.filename
+            # save soundfonts only with single file
+            elif soundfont and single:
+                pass
+            # discard everything else
+            else:
                 invalid_count += 1
                 invalid_name = attachment.filename
-                if count == 1:
-                    await ctx.send(
-                        f"Unrecognized file: **{attachment.filename}**", delete_after=3
-                    )
-                    unlink(filename)
-                    return
+                unlink(filename)
 
+        # raise an error if no files saved
+        if not saved_count:
+            await ctx.send(f"Unrecognized file: **{invalid_name}**", delete_after=3)
+            # to be safe
+            if isfile(filename):
+                unlink(filename)
+            return
+
+        # delete the replaced file
+        if not pack and existing:
+            unlink(cmd["filename"])
+
+        # save cmd for new pack or replaced file
         if not pack or not existing:
-            # store/replace the command descriptor
             cmd = {
                 "filename": filename if not pack else dirname,
                 "help": f"Uploaded by {ctx.author}",
@@ -158,25 +226,29 @@ class Uploading(Cog, name=COG_UPLOADING):
                     "guild": ctx.guild.id,
                 },
             }
-            if pack:
-                cmd["pack"] = True
-            self.files[name] = cmd
+
+        # save filtering flags
+        if pack:
+            cmd["pack"] = True
+        if midi:
+            cmd["midi"] = True
+        if video:
+            cmd["video"] = True
+        self.files[name] = cmd
 
         # add the command to the music cog
         self.espionage.add_command(name)
         # save the command descriptors
         save_files(self.files)
 
-        count += extracted_count
-        count -= invalid_count
-        if pack and existing and count == 1:
-            text = f"Added **{attachment.filename}** to `!{name}`."
-        elif count > 1:
-            text = f"Uploaded **{count}** file(s) to `!{name}`."
+        if pack and existing and saved_count == 1:
+            text = f"Added **{saved_name}** to `!{name}`."
+        elif saved_count > 1:
+            text = f"Uploaded **{saved_count}** file(s) to `!{name}`."
         elif not existing:
-            text = f"File **{attachment.filename}** uploaded as `!{name}`."
+            text = f"File **{saved_name}** uploaded as `!{name}`."
         else:
-            text = f"Replaced `!{name}` with **{attachment.filename}**."
+            text = f"Replaced `!{name}` with **{saved_name}**."
 
         if invalid_count == 1:
             text += f"\nFile **{invalid_name}** was unrecognized."
