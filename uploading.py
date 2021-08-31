@@ -4,19 +4,18 @@ from os.path import isdir, isfile
 from pathlib import Path
 from shutil import rmtree
 from time import time
-from typing import Dict, Tuple
+from typing import Dict
 
-import patoolib
-from discord import Attachment, Message
+from discord import Message
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Context
 
+import patoolib
 from settings import COG_ESPIONAGE, COG_UPLOADING
 from utils import (
-    archive_mimetypes,
+    check_file,
     ensure_can_modify,
     ensure_command,
-    filetype,
     pack_dirname,
     save_files,
 )
@@ -68,15 +67,6 @@ class Uploading(Cog, name=COG_UPLOADING):
             delete_after=10,
         )
 
-    def check_file(self, filename: str) -> Tuple[bool, bool, bool, bool, bool]:
-        mime_type, mime_text = filetype(filename)
-        audio = mime_type.startswith("audio/")
-        video = mime_type.startswith("video/")
-        archive = mime_type in archive_mimetypes
-        soundfont = "SoundFont/Bank" in mime_text
-        midi = "audio/midi" == mime_type
-        return (audio or video, archive, soundfont, midi, video)
-
     @commands.command()
     @commands.guild_only()
     async def upload(self, ctx: Context, name: str = None):
@@ -93,9 +83,11 @@ class Uploading(Cog, name=COG_UPLOADING):
             await ctx.send("You must add at least one attachment.", delete_after=3)
             return
 
-        # helper variables for the process
         cmd = None
+        # to make lint happy
+        filename = ""
 
+        # helper variables for the process
         pack = False
         existing = False
         count = len(message.attachments)
@@ -117,7 +109,7 @@ class Uploading(Cog, name=COG_UPLOADING):
             existing = True
             if not pack:
                 # require permissions to replace a file
-                ensure_can_modify(ctx, cmd)
+                await ensure_can_modify(ctx, cmd)
                 # cannot replace single with multiple files
                 if not single:
                     await ctx.send(f"Use `!pack {name}` first.", delete_after=3)
@@ -145,7 +137,7 @@ class Uploading(Cog, name=COG_UPLOADING):
             with open(filename, "wb") as f:
                 await attachment.save(f)
 
-            (audvid, archive, soundfont, midi1, video1) = self.check_file(filename)
+            (audvid, archive, soundfont, midi1, video1) = check_file(filename)
             midi = midi or midi1
             video = video or video1
 
@@ -174,7 +166,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                     if not isfile(path):
                         continue
 
-                    (audvid, archive, soundfont, midi1, video1) = self.check_file(path)
+                    (audvid, archive, soundfont, midi1, video1) = check_file(path)
                     midi = midi or midi1
                     video = video or video1
 

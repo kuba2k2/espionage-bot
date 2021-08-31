@@ -4,12 +4,19 @@ import sys
 from os import mkdir
 from os.path import isdir
 from shlex import quote
-from typing import Dict
+from typing import Dict, Tuple
 
-from discord import FFmpegOpusAudio, Guild, Member, VoiceChannel, VoiceClient
+from discord import (
+    ClientException,
+    FFmpegOpusAudio,
+    Guild,
+    Member,
+    VoiceChannel,
+    VoiceClient,
+)
 from discord.ext.commands import CommandError, Context
-from magic import Magic
 
+from magic import Magic
 from settings import FILES_JSON
 
 if sys.platform != "win32":
@@ -125,7 +132,17 @@ def pack_dirname(filename: str) -> str:
 def filetype(filename: str) -> str:
     mime = magic_mime.from_file(filename)
     text = magic_text.from_file(filename)
-    return (mime, text)
+    return mime, text
+
+
+def check_file(filename: str) -> Tuple[bool, bool, bool, bool, bool]:
+    mime_type, mime_text = filetype(filename)
+    audio = mime_type.startswith("audio/")
+    video = mime_type.startswith("video/")
+    archive = mime_type in archive_mimetypes
+    soundfont = "SoundFont/Bank" in mime_text
+    midi = "audio/midi" == mime_type
+    return audio or video, archive, soundfont, midi, video
 
 
 def load_files() -> Dict[str, dict]:

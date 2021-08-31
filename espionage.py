@@ -1,4 +1,3 @@
-import asyncio
 from glob import glob
 from random import choice as random_choice
 from typing import Dict, Union
