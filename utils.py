@@ -45,8 +45,8 @@ class FFmpegFileOpusAudio(FFmpegOpusAudio):
 
 class FFmpegMidiOpusAudio(FFmpegOpusAudio):
     def __init__(self, filename: str, soundfont: str, *args, **kwargs):
-        self.filename = filename
-        self.soundfont = soundfont
+        self.filename = filename.replace("\\", "/")
+        self.soundfont = soundfont.replace("\\", "/")
         super().__init__("-", before_options="-f s32le", *args, **kwargs)
 
     def _spawn_process(self, args, **subprocess_kwargs):

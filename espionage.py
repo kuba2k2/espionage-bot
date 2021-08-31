@@ -172,8 +172,15 @@ class Espionage(Cog, name="Music commands"):
         if not cmd:
             return
 
-        if filename[-4:] == ".mid":
-            source = FFmpegMidiOpusAudio(filename, "soundfont.sf2")
+        midi = "midi" in cmd and cmd["midi"]
+        if midi:
+            sf2s = cmd["sf2s"]
+            sf2 = random_choice(sf2s) if sf2s else None
+            sf2s = list(self.sf2s.values())
+            if not sf2s:
+                return
+            sf2 = self.sf2s[sf2] if sf2 in self.sf2s else random_choice(sf2s)
+            source = FFmpegMidiOpusAudio(filename, sf2["filename"])
         else:
             source = FFmpegFileOpusAudio(filename)
         voice.play(source, after=loop and repeat or leave)
