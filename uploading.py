@@ -162,7 +162,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                 # search for compatible files
                 for path in Path(dirname_tmp).rglob("*"):
                     path = str(path)
-                    filename = path.rpartition("/")[2]
+                    filename = path.rpartition(os.sep)[2]
                     if not isfile(path):
                         continue
 
@@ -171,10 +171,10 @@ class Uploading(Cog, name=COG_UPLOADING):
                     video = video or video1
 
                     if audvid:
-                        filename = f"{dirname}/{filename}"
-                        os.replace(path, filename)
                         saved_count += 1
                         saved_name = filename
+                        filename = f"{dirname}/{filename}"
+                        os.replace(path, filename)
                     # elif soundfont:
                     #     pass
                     else:
