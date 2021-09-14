@@ -6,7 +6,19 @@ The bot can also be summoned manually using commands in `files.json`.
 
 ## Usage
 
-Create `.env` and set your bot token and MP3 file path there.
+Copy `.env.example` and configure it.
+```shell
+BOT_TOKEN       #* your Discord bot token
+DATA_PATH       #* global data directory path (absolute or relative)
+UPLOAD_DIR      #  uploads directory name (inside the DATA_PATH, relative)
+ESPIONAGE_FILE  #  default AFK audio file name (inside the DATA_PATH, relative)
+FILES_JSON      #  files storage JSON (inside the DATA_PATH, relative)
+SF2S_JSON       #  soundfonts storage JSON (inside the DATA_PATH, relative)
+ACTIVITY_NAME   #  Discord activity name "Listening ....."
+```
+
+When migrating from previous versions put the old `FILES_JSON` and configured `ESPIONAGE_FILE`
+in `DATA_PATH` to have all audio files moved automatically.
 
 Create `files.json` and put additional file commands there.
 

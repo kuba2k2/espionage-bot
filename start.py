@@ -1,10 +1,12 @@
+import os
 from discord import Activity, ActivityType
 from discord.ext import commands
 from discord.ext.commands import Bot
+from os.path import join, isfile, dirname, isdir
 
 from espionage import Espionage
 from music import Music
-from settings import ACTIVITY_NAME, BOT_TOKEN, UPLOAD_PATH
+from settings import ACTIVITY_NAME, BOT_TOKEN, UPLOAD_PATH, UPLOAD_DIR, DATA_PATH
 from uploading import Uploading
 from utils import load_files, load_sf2s
 
@@ -22,15 +24,30 @@ async def on_ready():
     )
 
 
+def migrate(file: dict):
+    # naive data directory migration
+    if file["filename"].startswith(UPLOAD_DIR):
+        new_path = join(DATA_PATH, file["filename"])
+        if isfile(file["filename"]) or isdir(file["filename"]):
+            os.makedirs(dirname(new_path), exist_ok=True)
+            os.replace(file["filename"], new_path)
+        file["filename"] = new_path.replace("/", os.sep)
+
+
 def main():
     files = load_files()
     sf2s = load_sf2s()
-    for name in files:
-        if "author" not in files[name]:
+
+    for name, file in files.items():
+        migrate(file)
+        if "author" not in file:
             files[name]["author"] = {
                 "id": 0,
                 "guild": 0,
             }
+    for name, sf2 in sf2s.items():
+        migrate(sf2)
+
     client.add_cog(Espionage(bot=client, files=files, sf2s=sf2s))
     client.add_cog(Music(bot=client, files=files, sf2s=sf2s))
     client.add_cog(Uploading(bot=client, files=files, sf2s=sf2s, path=UPLOAD_PATH))

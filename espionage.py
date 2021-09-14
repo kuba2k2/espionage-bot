@@ -25,6 +25,7 @@ class Espionage(Cog, name="Music commands"):
         self.bot.event(self.on_voice_state_update)
         for name in files.keys():
             self.add_command(name)
+        print(f"Loaded {len(files)} audio commands.")
 
     def add_command(self, name: str):
         if self.bot.get_command(name):

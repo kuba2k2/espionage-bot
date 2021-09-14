@@ -1,6 +1,6 @@
 import os
 from os import mkdir, unlink
-from os.path import isdir, isfile
+from os.path import isdir, isfile, join, basename
 from pathlib import Path
 from shutil import rmtree
 from time import time
@@ -53,9 +53,9 @@ class Uploading(Cog, name=COG_UPLOADING):
         # TODO handle situation when the file is currently playing
         # thus used by FFmpeg and may be locked
 
-        dirname = pack_dirname(f"{self.path}/{int(time())}_{name}")
-        filename = cmd["filename"].rpartition("/")[2]
-        filename = f"{dirname}/{filename}"
+        dirname = pack_dirname(join(self.path, f"{int(time())}_{name}"))
+        filename = basename(cmd["filename"])
+        filename = join(dirname, filename)
         os.replace(cmd["filename"], filename)
 
         cmd["filename"] = dirname
@@ -129,7 +129,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                 dirname = cmd["filename"]
             else:
                 # create a new pack
-                dirname = pack_dirname(f"{self.path}/{int(time())}_{name}")
+                dirname = pack_dirname(join(self.path, f"{int(time())}_{name}"))
         else:
             # single file - store directly to uploads
             dirname = self.path
@@ -137,7 +137,7 @@ class Uploading(Cog, name=COG_UPLOADING):
         # save all attachments
         for attachment in message.attachments:
             # create a safe filename
-            filename = f"{dirname}/{int(time())}_{attachment.filename}"
+            filename = join(dirname, f"{int(time())}_{attachment.filename}")
             # save the attachment
             with open(filename, "wb") as f:
                 await attachment.save(f)
@@ -167,7 +167,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                 # search for compatible files
                 for path in Path(dirname_tmp).rglob("*"):
                     path = str(path)
-                    filename = path.rpartition(os.sep)[2]
+                    filename = basename(path)
                     if not isfile(path):
                         continue
 
@@ -178,7 +178,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                     if audvid:
                         saved_count += 1
                         saved_name = filename
-                        filename = f"{dirname}/{filename}"
+                        filename = join(dirname, filename)
                         os.replace(path, filename)
                     # elif soundfont:
                     #     pass
