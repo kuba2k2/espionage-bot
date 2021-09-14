@@ -1,5 +1,5 @@
 import os
-from os.path import isdir, isabs, isfile
+from os.path import isabs, isdir, isfile
 
 from dotenv import load_dotenv
 
@@ -27,11 +27,11 @@ RANDOM_FILE = "random"
 
 # ensure existing data path with a trailing slash
 isdir(DATA_PATH) or os.makedirs(DATA_PATH, exist_ok=True)
-DATA_PATH = DATA_PATH.rstrip(os.sep + os.altsep)
+DATA_PATH = DATA_PATH.rstrip(os.sep + (os.altsep or ""))
 DATA_PATH = os.path.join(DATA_PATH, "")
 
 # ensure existing uploads path with a trailing slash
-UPLOAD_DIR = UPLOAD_DIR.strip(os.sep + os.altsep)
+UPLOAD_DIR = UPLOAD_DIR.strip(os.sep + (os.altsep or ""))
 UPLOAD_PATH = os.path.join(DATA_PATH, UPLOAD_DIR, "")
 isdir(UPLOAD_PATH) or os.makedirs(UPLOAD_PATH, exist_ok=True)
 

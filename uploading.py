@@ -1,6 +1,6 @@
 import os
 from os import mkdir, unlink
-from os.path import isdir, isfile, join, basename
+from os.path import basename, isdir, isfile, join
 from pathlib import Path
 from shutil import rmtree
 from time import time

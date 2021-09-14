@@ -1,12 +1,13 @@
 import os
+from os.path import dirname, isdir, isfile, join
+
 from discord import Activity, ActivityType
 from discord.ext import commands
 from discord.ext.commands import Bot
-from os.path import join, isfile, dirname, isdir
 
 from espionage import Espionage
 from music import Music
-from settings import ACTIVITY_NAME, BOT_TOKEN, UPLOAD_PATH, UPLOAD_DIR, DATA_PATH
+from settings import ACTIVITY_NAME, BOT_TOKEN, DATA_PATH, UPLOAD_DIR, UPLOAD_PATH
 from uploading import Uploading
 from utils import load_files, load_sf2s
 
