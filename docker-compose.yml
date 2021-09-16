@@ -1,0 +1,29 @@
+version: "3.9"
+services:
+  bot:
+    environment:
+      # fields marked with * are required
+      # values in this file are default for optional fields
+
+      #* your Discord bot token
+      - BOT_TOKEN=
+      #* global data directory path (absolute or relative)
+      - DATA_PATH=data/
+      #* default AFK audio file name (inside the DATA_PATH, relative)
+      - ESPIONAGE_FILE=espionage.mp3
+
+      #  uploads directory name (inside the DATA_PATH, relative)
+      # - UPLOAD_DIR=uploads
+      #  files storage JSON (inside the DATA_PATH, relative)
+      # - FILES_JSON=files.json
+      #  soundfonts storage JSON (inside the DATA_PATH, relative)
+      # - SF2S_JSON=soundfonts.json
+      #  Discord activity name "Listening ....."
+      # - ACTIVITY_NAME="Espionage"
+
+    build: https://github.com/kuba2k2/espionage-bot.git
+    image: espionage-bot
+    container_name: espionage-bot
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
