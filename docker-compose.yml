@@ -21,8 +21,7 @@ services:
       #  Discord activity name "Listening ....."
       # - ACTIVITY_NAME=Espionage
 
-    build: https://github.com/kuba2k2/espionage-bot.git
-    image: espionage-bot
+    image: kuba2k2/espionage-bot
     container_name: espionage-bot
     volumes:
       - ./data:/app/data
