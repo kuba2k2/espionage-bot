@@ -1,36 +1,33 @@
-import os
-from os import mkdir, unlink
+from os import mkdir, replace, unlink
 from os.path import basename, isdir, isfile, join
 from pathlib import Path
 from shutil import rmtree
 from time import time
 from typing import Dict
 
+import patoolib
 from discord import Message
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Context
-
-import patoolib
-from settings import COG_ESPIONAGE, COG_UPLOADING
 from sf2utils.sf2parse import Sf2File
+
+from settings import CMD_VERSION, COG_ESPIONAGE, COG_UPLOADING, UPLOAD_PATH
 from utils import (
     check_file,
     ensure_can_modify,
     ensure_command,
     pack_dirname,
+    real_filename,
     save_files,
     save_sf2s,
 )
 
 
 class Uploading(Cog, name=COG_UPLOADING):
-    def __init__(
-        self, bot: Bot, files: Dict[str, dict], sf2s: Dict[str, str], path: str
-    ):
+    def __init__(self, bot: Bot, files: Dict[str, dict], sf2s: Dict[str, str]):
         self.bot = bot
         self.files = files
         self.sf2s = sf2s
-        self.path = path
         self.espionage = self.bot.get_cog(COG_ESPIONAGE)
 
     @commands.command()
@@ -53,12 +50,13 @@ class Uploading(Cog, name=COG_UPLOADING):
         # TODO handle situation when the file is currently playing
         # thus used by FFmpeg and may be locked
 
-        dirname = pack_dirname(join(self.path, f"{int(time())}_{name}"))
-        filename = basename(cmd["filename"])
-        filename = join(dirname, filename)
-        os.replace(cmd["filename"], filename)
+        dirname = pack_dirname(join(UPLOAD_PATH, f"{int(time())}_{name}"))
+        old_filename = real_filename(cmd)
+        old_basename = basename(cmd["filename"])
+        new_filename = join(dirname, old_basename)
+        replace(old_filename, new_filename)
 
-        cmd["filename"] = dirname
+        cmd["filename"] = basename(dirname)
         cmd["pack"] = True
 
         # remove the command to update help text
@@ -126,13 +124,13 @@ class Uploading(Cog, name=COG_UPLOADING):
         if pack:
             if existing:
                 # store to an existing pack
-                dirname = cmd["filename"]
+                dirname = real_filename(cmd)
             else:
                 # create a new pack
-                dirname = pack_dirname(join(self.path, f"{int(time())}_{name}"))
+                dirname = pack_dirname(join(UPLOAD_PATH, f"{int(time())}_{name}"))
         else:
             # single file - store directly to uploads
-            dirname = self.path
+            dirname = UPLOAD_PATH
 
         # save all attachments
         for attachment in message.attachments:
@@ -179,7 +177,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                         saved_count += 1
                         saved_name = filename
                         filename = join(dirname, filename)
-                        os.replace(path, filename)
+                        replace(path, filename)
                     # elif soundfont:
                     #     pass
                     else:
@@ -214,12 +212,13 @@ class Uploading(Cog, name=COG_UPLOADING):
                     sf2_name = sf2_name.replace(b"\x00", b"").decode().strip()
 
                 sf2 = {
-                    "filename": filename,
+                    "filename": basename(filename),
                     "help": sf2_name,
                     "author": {
                         "id": ctx.author.id,
                         "guild": ctx.guild.id,
                     },
+                    "version": CMD_VERSION,
                 }
 
                 self.sf2s[name] = sf2
@@ -251,13 +250,14 @@ class Uploading(Cog, name=COG_UPLOADING):
         # save cmd for new pack or replaced file
         if not pack or not existing:
             cmd = {
-                "filename": filename if not pack else dirname,
+                "filename": basename(filename if not pack else dirname),
                 "help": f"Uploaded by {ctx.author}",
                 "loop": True,
                 "author": {
                     "id": ctx.author.id,
                     "guild": ctx.guild.id,
                 },
+                "version": CMD_VERSION,
             }
 
         # save filtering flags
@@ -306,7 +306,7 @@ class Uploading(Cog, name=COG_UPLOADING):
         # remove the command
         self.espionage.remove_command(name)
         self.files.pop(name, None)
-        filename = cmd["filename"]
+        filename = real_filename(cmd)
         if isfile(filename):
             unlink(filename)
         elif isdir(filename):

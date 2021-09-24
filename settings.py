@@ -1,5 +1,5 @@
-import os
-from os.path import isabs, isdir, isfile
+from os import altsep, getenv, makedirs, sep
+from os.path import isabs, isdir, isfile, join
 
 from dotenv import load_dotenv
 
@@ -10,30 +10,32 @@ def die(s: str):
     raise SystemExit(s)
 
 
-BOT_TOKEN = os.getenv("BOT_TOKEN") or die("Bot token not provided")
-DATA_PATH = os.getenv("DATA_PATH") or die("Data path not specified")
-UPLOAD_DIR = os.getenv("UPLOAD_DIR") or "uploads"
-ESPIONAGE_FILE = os.getenv("ESPIONAGE_FILE") or die("Espionage file not specified")
-FILES_JSON = os.getenv("FILES_JSON") or "files.json"
-SF2S_JSON = os.getenv("SF2S_JSON") or "soundfonts.json"
+CMD_VERSION = 2
 
-ACTIVITY_NAME = os.getenv("ACTIVITY_NAME") or "Espionage"
+BOT_TOKEN = getenv("BOT_TOKEN") or die("Bot token not provided")
+DATA_PATH = getenv("DATA_PATH") or die("Data path not specified")
+UPLOAD_DIR = getenv("UPLOAD_DIR") or "uploads"
+ESPIONAGE_FILE = getenv("ESPIONAGE_FILE") or die("Espionage file not specified")
+FILES_JSON = getenv("FILES_JSON") or "files.json"
+SF2S_JSON = getenv("SF2S_JSON") or "soundfonts.json"
 
-COG_ESPIONAGE = os.getenv("COG_ESPIONAGE") or "Music commands"
-COG_MUSIC = os.getenv("COG_MUSIC") or "Other music commands"
-COG_UPLOADING = os.getenv("COG_UPLOADING") or "File uploading/management"
+ACTIVITY_NAME = getenv("ACTIVITY_NAME") or "Espionage"
+
+COG_ESPIONAGE = getenv("COG_ESPIONAGE") or "Music commands"
+COG_MUSIC = getenv("COG_MUSIC") or "Other music commands"
+COG_UPLOADING = getenv("COG_UPLOADING") or "File uploading/management"
 
 RANDOM_FILE = "random"
 
 # ensure existing data path with a trailing slash
-isdir(DATA_PATH) or os.makedirs(DATA_PATH, exist_ok=True)
-DATA_PATH = DATA_PATH.rstrip(os.sep + (os.altsep or ""))
-DATA_PATH = os.path.join(DATA_PATH, "")
+isdir(DATA_PATH) or makedirs(DATA_PATH, exist_ok=True)
+DATA_PATH = DATA_PATH.rstrip(sep + (altsep or ""))
+DATA_PATH = join(DATA_PATH, "")
 
 # ensure existing uploads path with a trailing slash
-UPLOAD_DIR = UPLOAD_DIR.strip(os.sep + (os.altsep or ""))
-UPLOAD_PATH = os.path.join(DATA_PATH, UPLOAD_DIR, "")
-isdir(UPLOAD_PATH) or os.makedirs(UPLOAD_PATH, exist_ok=True)
+UPLOAD_DIR = UPLOAD_DIR.strip(sep + (altsep or ""))
+UPLOAD_PATH = join(DATA_PATH, UPLOAD_DIR, "")
+isdir(UPLOAD_PATH) or makedirs(UPLOAD_PATH, exist_ok=True)
 
 FILES_JSON = DATA_PATH + FILES_JSON
 SF2S_JSON = DATA_PATH + SF2S_JSON

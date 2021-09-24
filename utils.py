@@ -2,7 +2,7 @@ import json
 import subprocess
 import sys
 from os import mkdir
-from os.path import isdir, isfile
+from os.path import isabs, isdir, isfile, join
 from shlex import quote
 from typing import Dict, Tuple
 
@@ -15,9 +15,9 @@ from discord import (
     VoiceClient,
 )
 from discord.ext.commands import CommandError, Context
-
 from magic import Magic
-from settings import FILES_JSON, SF2S_JSON
+
+from settings import FILES_JSON, SF2S_JSON, UPLOAD_PATH
 
 if sys.platform != "win32":
     CREATE_NO_WINDOW = 0
@@ -127,6 +127,13 @@ def pack_dirname(filename: str) -> str:
     if not isdir(dirname):
         mkdir(dirname)
     return dirname
+
+
+def real_filename(cmd: dict) -> str:
+    filename = cmd["filename"]
+    if not isabs(filename):
+        filename = join(UPLOAD_PATH, filename)
+    return filename
 
 
 def filetype(filename: str) -> str:

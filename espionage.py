@@ -14,6 +14,7 @@ from utils import (
     disconnect,
     ensure_voice,
     is_alone,
+    real_filename,
 )
 
 
@@ -132,12 +133,14 @@ class Espionage(Cog, name="Music commands"):
 
         # set the appropriate filename and loop mode
         if isinstance(cmd, dict):
-            filename = cmd["filename"]
+            # filename is a basename
+            filename = real_filename(cmd)
             pack = "pack" in cmd and cmd["pack"]
             if pack:
                 filename = random_choice(glob(f"{filename}/*"))
             loop = cmd["loop"] or random or pack
         else:
+            # only for ESPIONAGE_FILE as cmd - already absolute or relative to cwd
             filename = cmd
             loop = True
 
@@ -181,7 +184,10 @@ class Espionage(Cog, name="Music commands"):
             if not sf2s:
                 return
             sf2 = self.sf2s[sf2] if sf2 in self.sf2s else random_choice(sf2s)
-            source = FFmpegMidiOpusAudio(filename, sf2["filename"])
+            sf2_name = real_filename(sf2)
+            print(f"Playing '{filename}' with SF2 '{sf2_name}' ...")
+            source = FFmpegMidiOpusAudio(filename, sf2_name)
         else:
+            print(f"Playing '{filename}' ...")
             source = FFmpegFileOpusAudio(filename)
         voice.play(source, after=loop and repeat or leave)

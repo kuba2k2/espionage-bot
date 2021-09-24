@@ -1,5 +1,5 @@
-import os
-from os.path import dirname, isdir, isfile, join
+from os import makedirs, replace, sep
+from os.path import basename, dirname, isdir, isfile, join
 
 from discord import Activity, ActivityType
 from discord.ext import commands
@@ -26,32 +26,41 @@ async def on_ready():
 
 
 def migrate(file: dict):
-    # naive data directory migration
-    if file["filename"].startswith(UPLOAD_DIR):
-        new_path = join(DATA_PATH, file["filename"])
-        if isfile(file["filename"]) or isdir(file["filename"]):
-            os.makedirs(dirname(new_path), exist_ok=True)
-            os.replace(file["filename"], new_path)
-        file["filename"] = new_path.replace("/", os.sep)
+    version = file["version"] if "version" in file else 1
+    if version < 2:
+        # add missing author info
+        if "author" not in file:
+            file["author"] = {
+                "id": 0,
+                "guild": 0,
+            }
+
+        # naive data directory migration
+        if file["filename"].startswith(UPLOAD_DIR):
+            new_path = join(DATA_PATH, file["filename"])
+            if isfile(file["filename"]) or isdir(file["filename"]):
+                makedirs(dirname(new_path), exist_ok=True)
+                replace(file["filename"], new_path)
+            file["filename"] = new_path.replace("/", sep)
+
+        # change filenames to the last path component
+        # so that it's relative to UPLOAD_DIR
+        file["filename"] = basename(file["filename"])
+        file["version"] = 2
 
 
 def main():
     files = load_files()
     sf2s = load_sf2s()
 
-    for name, file in files.items():
+    for file in files.values():
         migrate(file)
-        if "author" not in file:
-            files[name]["author"] = {
-                "id": 0,
-                "guild": 0,
-            }
-    for name, sf2 in sf2s.items():
+    for sf2 in sf2s.values():
         migrate(sf2)
 
     client.add_cog(Espionage(bot=client, files=files, sf2s=sf2s))
     client.add_cog(Music(bot=client, files=files, sf2s=sf2s))
-    client.add_cog(Uploading(bot=client, files=files, sf2s=sf2s, path=UPLOAD_PATH))
+    client.add_cog(Uploading(bot=client, files=files, sf2s=sf2s))
     client.run(BOT_TOKEN)
 
 
