@@ -4,7 +4,7 @@ import sys
 from os import mkdir
 from os.path import isabs, isdir, isfile, join
 from shlex import quote
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 from discord import (
     ClientException,
@@ -17,7 +17,16 @@ from discord import (
 from discord.ext.commands import CommandError, Context
 from magic import Magic
 
-from settings import FILES_JSON, SF2S_JSON, UPLOAD_PATH
+from settings import (
+    FILES_JSON,
+    MIDI_IMPL,
+    MIDI_IMPL_FLUIDSYNTH,
+    MIDI_IMPL_TIMIDITY,
+    MIDI_MUTE_124,
+    MIDI_MUTE_124_FILE,
+    SF2S_JSON,
+    UPLOAD_PATH,
+)
 
 if sys.platform != "win32":
     CREATE_NO_WINDOW = 0
@@ -47,13 +56,72 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
     def __init__(self, filename: str, soundfont: str, *args, **kwargs):
         self.filename = filename.replace("\\", "/")
         self.soundfont = soundfont.replace("\\", "/")
-        super().__init__("-", before_options="-f s32le", *args, **kwargs)
+        self.impl = MIDI_IMPL
+
+        if self.impl == MIDI_IMPL_FLUIDSYNTH:
+            opts = [
+                "-f s32le",
+                "-ac 2",
+                "-guess_layout_max 0",
+            ]
+        else:
+            opts = []
+
+        super().__init__("-", before_options=" ".join(opts), *args, **kwargs)
+
+    def _get_cmd(self, super_args) -> str:
+        if self.impl == MIDI_IMPL_FLUIDSYNTH:
+            args = self._get_args_fs()
+        elif self.impl == MIDI_IMPL_TIMIDITY:
+            args = self._get_args_tm()
+        else:
+            return " ".join(super_args)
+        args.append("|")
+        args.extend(super_args)
+        return " ".join(args)
+
+    def _get_args_fs(self) -> List[str]:
+        args = [
+            "fluidsynth",
+            "-a alsa",  # The audio driver to use
+            "-T raw",  # Audio file type for fast rendering or aufile driver
+            "-O s32",  # Audio file format for fast rendering or aufile driver
+            "-E little",  # Audio file endian for fast rendering or aufile driver
+            "-r 44100",  # Set the sample rate
+            "-L 1",  # The number of stereo audio channels
+            "-g 1.0",  # Set the master gain
+            "-F -",  # Render MIDI file to raw audio data and store in [file]
+            "-q",  # Do not print welcome message or other informational output
+            quote(self.soundfont),
+            quote(self.filename),
+        ]
+        if MIDI_MUTE_124:
+            args.append(MIDI_MUTE_124_FILE)
+        return args
+
+    def _get_args_tm(self) -> List[str]:
+        opts = [
+            f"soundfont {quote(self.soundfont)}",
+            "opt EFchorus=d",
+            "opt EFreverb=d",
+            "opt EFdelay=d",
+        ]
+        if MIDI_MUTE_124:
+            opts.append("font exclude 0 124")
+        opts = "\\n".join(opts)
+        args = [
+            "timidity",
+            f'-x "{opts}"',  # Configure TiMidity++ with str
+            "-Ow",  # Generate RIFF WAVE format output
+            "-o -",  # Place output on file
+            quote(self.filename),
+        ]
+        return args
 
     def _spawn_process(self, args, **subprocess_kwargs):
         process = None
         try:
-            cmdline = " ".join(args)
-            cmdline = f"fluidsynth -a alsa -T raw -F - {quote(self.soundfont)} {quote(self.filename)} | {cmdline}"
+            cmdline = self._get_cmd(args)
             process = subprocess.Popen(
                 cmdline, creationflags=CREATE_NO_WINDOW, shell=True, **subprocess_kwargs
             )
@@ -144,10 +212,12 @@ def filetype(filename: str) -> str:
 
 def check_file(filename: str) -> Tuple[bool, bool, bool, bool, bool]:
     mime_type, mime_text = filetype(filename)
+    soundfont = "audio/x-sfbk" == mime_type or "SoundFont/Bank" in mime_text
+    if soundfont:
+        return False, False, True, False, False
     audio = mime_type.startswith("audio/")
     video = mime_type.startswith("video/")
     archive = mime_type in archive_mimetypes
-    soundfont = "SoundFont/Bank" in mime_text
     midi = "audio/midi" == mime_type
     return audio or video, archive, soundfont, midi, video
 

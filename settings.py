@@ -12,8 +12,13 @@ def die(s: str):
 
 CMD_VERSION = 2
 
+RANDOM_FILE = "random"
+MIDI_IMPL_NONE = "nomidi"
+MIDI_IMPL_FLUIDSYNTH = "fluidsynth"
+MIDI_IMPL_TIMIDITY = "timidity"
+
 BOT_TOKEN = getenv("BOT_TOKEN") or die("Bot token not provided")
-DATA_PATH = getenv("DATA_PATH") or die("Data path not specified")
+DATA_PATH = getenv("DATA_PATH") or "data/"
 UPLOAD_DIR = getenv("UPLOAD_DIR") or "uploads"
 ESPIONAGE_FILE = getenv("ESPIONAGE_FILE") or die("Espionage file not specified")
 FILES_JSON = getenv("FILES_JSON") or "files.json"
@@ -25,7 +30,9 @@ COG_ESPIONAGE = getenv("COG_ESPIONAGE") or "Music commands"
 COG_MUSIC = getenv("COG_MUSIC") or "Other music commands"
 COG_UPLOADING = getenv("COG_UPLOADING") or "File uploading/management"
 
-RANDOM_FILE = "random"
+MIDI_IMPL = getenv("MIDI_IMPL") or MIDI_IMPL_NONE
+MIDI_MUTE_124 = getenv("MIDI_MUTE_124") == "true"
+MIDI_MUTE_124_FILE = getenv("MIDI_MUTE_124_FILE") or "mute124.sf2"
 
 # ensure existing data path with a trailing slash
 isdir(DATA_PATH) or makedirs(DATA_PATH, exist_ok=True)
@@ -45,6 +52,10 @@ if not isabs(ESPIONAGE_FILE):
     ESPIONAGE_FILE = DATA_PATH + ESPIONAGE_FILE
 
 isfile(ESPIONAGE_FILE) or die("Espionage file does not exist")
+MIDI_IMPL in [MIDI_IMPL_NONE, MIDI_IMPL_FLUIDSYNTH, MIDI_IMPL_TIMIDITY] or die(
+    "Invalid MIDI_IMPL"
+)
+MIDI_MUTE_124 and (isfile(MIDI_MUTE_124_FILE) or die("mute124.sf2 file not found!"))
 
 print(f"Using data path: '{DATA_PATH}'")
 print(f"Using upload path: '{UPLOAD_PATH}'")

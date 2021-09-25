@@ -198,7 +198,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                     sf2 = self.sf2s[name]
                     await ensure_can_modify(ctx, sf2)
                     # unlink to replace with another
-                    unlink(sf2["filename"])
+                    unlink(real_filename(sf2))
 
                 with open(filename, "rb") as f:
                     sf2 = Sf2File(f)
@@ -245,7 +245,7 @@ class Uploading(Cog, name=COG_UPLOADING):
 
         # delete the replaced file
         if not pack and existing:
-            unlink(cmd["filename"])
+            unlink(real_filename(cmd))
 
         # save cmd for new pack or replaced file
         if not pack or not existing:

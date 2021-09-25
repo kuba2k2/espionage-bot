@@ -5,10 +5,10 @@ services:
       # these values are required, refer to .env.example for optional values
       # * your Discord bot token
       - BOT_TOKEN=
-      # * global data directory path (absolute or relative)
-      - DATA_PATH=/data
       # * default AFK audio file name (inside the DATA_PATH, relative)
       - ESPIONAGE_FILE=espionage.mp3
+      # global data directory path (absolute or relative)
+      - DATA_PATH=/data
 
     image: kuba2k2/espionage-bot:latest-nomidi
     container_name: espionage-bot
