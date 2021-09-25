@@ -1,4 +1,4 @@
-name: Publish Docker Image
+name: Publish Docker Images
 on:
   push:
     branches:
@@ -6,7 +6,10 @@ on:
   workflow_dispatch:
 jobs:
   build:
-    name: Build and publish image
+    strategy:
+      matrix:
+        midi-impl: ['nomidi', 'fluidsynth', 'timidity']
+    name: Build and publish ${{ matrix.midi-impl }} image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -36,7 +39,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/espionage-bot:latest
+          build-args: |
+            MIDI_IMPL=${{ matrix.midi-impl }}
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/espionage-bot:latest-${{ matrix.midi-impl }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 
