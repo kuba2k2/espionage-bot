@@ -10,7 +10,7 @@ def die(s: str):
     raise SystemExit(s)
 
 
-CMD_VERSION = 2
+CMD_VERSION = 3
 
 RANDOM_FILE = "random"
 MIDI_IMPL_NONE = "nomidi"

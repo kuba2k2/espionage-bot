@@ -6,7 +6,7 @@ from discord import Member, User, VoiceChannel, VoiceClient, VoiceState
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Command, Context
 
-from settings import ESPIONAGE_FILE, RANDOM_FILE
+from settings import ESPIONAGE_FILE, MIDI_IMPL, MIDI_IMPL_NONE, RANDOM_FILE
 from utils import (
     FFmpegFileOpusAudio,
     FFmpegMidiOpusAudio,
@@ -177,17 +177,28 @@ class Espionage(Cog, name="Music commands"):
             return
 
         midi = "midi" in cmd and cmd["midi"]
+
+        rate = None
+        speed = cmd["speed"] if "speed" in cmd else 100
+        if speed != 100 and "info" in cmd:
+            rate = cmd["info"]["sample_rate"]
+            rate = rate * speed / 100
+            rate = int(rate)
+        elif speed != 100 and midi:
+            rate = 44100 * speed / 100
+            rate = int(rate)
+
         if midi:
             sf2s = cmd["sf2s"]
             sf2 = random_choice(sf2s) if sf2s else None
             sf2s = list(self.sf2s.values())
-            if not sf2s:
+            if not sf2s or MIDI_IMPL == MIDI_IMPL_NONE:
                 return
             sf2 = self.sf2s[sf2] if sf2 in self.sf2s else random_choice(sf2s)
             sf2_name = real_filename(sf2)
             print(f"Playing '{filename}' with SF2 '{sf2_name}' ...")
-            source = FFmpegMidiOpusAudio(filename, sf2_name)
+            source = FFmpegMidiOpusAudio(filename, sf2_name, rate)
         else:
             print(f"Playing '{filename}' ...")
-            source = FFmpegFileOpusAudio(filename)
+            source = FFmpegFileOpusAudio(filename, rate)
         voice.play(source, after=loop and repeat or leave)

@@ -40,6 +40,7 @@ class Music(Cog, name=COG_MUSIC):
                 delete_after=10,
             )
             return
+
         cmd["loop"] = not cmd["loop"]
 
         # remove the command to update help text
@@ -54,6 +55,52 @@ class Music(Cog, name=COG_MUSIC):
             )
         else:
             await ctx.send(f":x: Looping disabled for `!{name}`.", delete_after=3)
+
+    @commands.command()
+    @commands.guild_only()
+    async def speed(self, ctx: Context, name: str = None, speed: str = None):
+        """Set the playing speed (percent)."""
+        if not name or not speed:
+            await ctx.send("Usage: `!speed <command name> <speed>`.", delete_after=3)
+            return
+
+        speed = speed.rstrip("%")
+        try:
+            speed = float(speed)
+        except ValueError:
+            await ctx.send(f"`{speed}` is not a valid number.", delete_after=3)
+            return
+
+        # 0.0-10.0 -> 0%-1000%
+        if speed <= 10.0:
+            speed *= 100
+        speed = int(speed)
+
+        cmd = await ensure_command(ctx, name, self.files)
+        pack = "pack" in cmd and cmd["pack"]
+        midi = "midi" in cmd and cmd["midi"]
+        if pack:
+            await ctx.send(
+                f":file_folder: `!{name}` is a music pack. Speed changing is not possible.",
+                delete_after=10,
+            )
+            return
+        if not midi and "info" not in cmd:
+            await ctx.send(
+                f"Speed changing is not possible - missing file metadata.",
+                delete_after=10,
+            )
+            return
+
+        if speed != 100:
+            cmd["speed"] = speed
+        else:
+            cmd.pop("speed", None)
+
+        # save the command descriptors
+        save_files(self.files)
+
+        await ctx.send(f"Speed of `!{name}` set to {speed}%.", delete_after=3)
 
     @commands.command()
     @commands.guild_only()

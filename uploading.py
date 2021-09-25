@@ -16,6 +16,7 @@ from utils import (
     check_file,
     ensure_can_modify,
     ensure_command,
+    fill_audio_info,
     pack_dirname,
     real_filename,
     save_files,
@@ -259,6 +260,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                 },
                 "version": CMD_VERSION,
             }
+            fill_audio_info(cmd)
 
         # save filtering flags
         if pack:

@@ -3,8 +3,8 @@ import subprocess
 import sys
 from os import mkdir
 from os.path import isabs, isdir, isfile, join
-from shlex import quote
-from typing import Dict, List, Tuple
+from shlex import quote, split
+from typing import Dict, List, Tuple, Union
 
 from discord import (
     ClientException,
@@ -47,27 +47,41 @@ magic_text = Magic(mime=False)
 
 
 class FFmpegFileOpusAudio(FFmpegOpusAudio):
-    def __init__(self, filename: str, *args, **kwargs):
+    def __init__(self, filename: str, rate: int, *args, **kwargs):
         self.filename = filename
-        super().__init__(filename, *args, **kwargs)
+
+        if rate:
+            opts = f"-af asetrate={rate}"
+        else:
+            opts = ""
+
+        super().__init__(filename, options=opts, *args, **kwargs)
 
 
 class FFmpegMidiOpusAudio(FFmpegOpusAudio):
-    def __init__(self, filename: str, soundfont: str, *args, **kwargs):
+    def __init__(self, filename: str, soundfont: str, rate: int, *args, **kwargs):
         self.filename = filename.replace("\\", "/")
         self.soundfont = soundfont.replace("\\", "/")
         self.impl = MIDI_IMPL
+        self.rate = rate
 
         if self.impl == MIDI_IMPL_FLUIDSYNTH:
-            opts = [
+            before_opts = [
                 "-f s32le",
                 "-ac 2",
                 "-guess_layout_max 0",
             ]
         else:
-            opts = []
+            before_opts = []
 
-        super().__init__("-", before_options=" ".join(opts), *args, **kwargs)
+        if rate:
+            opts = f"-af asetrate={rate},aformat=channel_layouts=2"
+        else:
+            opts = ""
+
+        super().__init__(
+            "-", before_options=" ".join(before_opts), options=opts, *args, **kwargs
+        )
 
     def _get_cmd(self, super_args) -> str:
         if self.impl == MIDI_IMPL_FLUIDSYNTH:
@@ -220,6 +234,42 @@ def check_file(filename: str) -> Tuple[bool, bool, bool, bool, bool]:
     archive = mime_type in archive_mimetypes
     midi = "audio/midi" == mime_type
     return audio or video, archive, soundfont, midi, video
+
+
+def get_audio_info(filename: str) -> Union[dict, None]:
+    cmd = [
+        "ffprobe",
+        "-show_streams",
+        "-of json",
+        quote(filename),
+    ]
+    cmd = " ".join(cmd)
+    result = subprocess.run(split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    data = result.stdout.decode()
+    data = json.loads(data)
+    if not "streams" in data:
+        return None
+    data = [s for s in data["streams"] if s["codec_type"] == "audio"]
+    if not data:
+        return None
+    return data[0]
+
+
+def fill_audio_info(cmd: dict):
+    pack = "pack" in cmd and cmd["pack"]
+    midi = "midi" in cmd and cmd["midi"]
+    if pack or midi:
+        return
+    filename = real_filename(cmd)
+    info = get_audio_info(filename)
+    if not info:
+        return
+    cmd["info"] = {
+        "sample_rate": int(info["sample_rate"]),
+        "duration": float(info["duration"]),
+        "channels": int(info["channels"]),
+        "codec": info["codec_name"],
+    }
 
 
 def load_files() -> Dict[str, dict]:
