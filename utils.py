@@ -28,11 +28,7 @@ from settings import (
     UPLOAD_PATH,
 )
 
-if sys.platform != "win32":
-    CREATE_NO_WINDOW = 0
-else:
-    CREATE_NO_WINDOW = 0x08000000
-
+CREATE_NO_WINDOW = 0 if sys.platform != "win32" else 0x08000000
 archive_mimetypes = [
     "application/zip",
     "application/x-rar-compressed",
@@ -50,11 +46,7 @@ class FFmpegFileOpusAudio(FFmpegOpusAudio):
     def __init__(self, filename: str, rate: int, *args, **kwargs):
         self.filename = filename
 
-        if rate:
-            opts = f"-af asetrate={rate}"
-        else:
-            opts = ""
-
+        opts = f"-af asetrate={rate}" if rate else ""
         super().__init__(filename, options=opts, *args, **kwargs)
 
 
@@ -74,11 +66,7 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
         else:
             before_opts = []
 
-        if rate:
-            opts = f"-af asetrate={rate},aformat=channel_layouts=2"
-        else:
-            opts = ""
-
+        opts = f"-af asetrate={rate},aformat=channel_layouts=2" if rate else ""
         super().__init__(
             "-", before_options=" ".join(before_opts), options=opts, *args, **kwargs
         )
@@ -123,14 +111,13 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
         if MIDI_MUTE_124:
             opts.append("font exclude 0 124")
         opts = "\\n".join(opts)
-        args = [
+        return [
             "timidity",
             f'-x "{opts}"',  # Configure TiMidity++ with str
             "-Ow",  # Generate RIFF WAVE format output
             "-o -",  # Place output on file
             quote(self.filename),
         ]
-        return args
 
     def _spawn_process(self, args, **subprocess_kwargs):
         process = None
@@ -141,7 +128,7 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
             )
         except FileNotFoundError:
             executable = args.partition(" ")[0] if isinstance(args, str) else args[0]
-            raise ClientException(executable + " was not found.") from None
+            raise ClientException(f"{executable} was not found.") from None
         except subprocess.SubprocessError as exc:
             raise ClientException(
                 "Popen failed: {0.__class__.__name__}: {0}".format(exc)
@@ -163,9 +150,7 @@ async def connect_to(channel: VoiceChannel) -> VoiceClient:
 
 
 def is_alone(voice: VoiceClient) -> bool:
-    if not voice:
-        return False
-    return len(voice.channel.voice_states) <= 1
+    return len(voice.channel.voice_states) <= 1 if voice else False
 
 
 async def disconnect(voice: VoiceClient):
@@ -175,7 +160,7 @@ async def disconnect(voice: VoiceClient):
 async def ensure_voice(_, ctx: Context):
     member: Member = len(ctx.args) > 2 and ctx.args[2] or ctx.author
     if not member.voice:
-        await ctx.send(f"User is not connected to a voice channel.", delete_after=3)
+        await ctx.send("User is not connected to a voice channel.", delete_after=3)
         raise CommandError(f"{ctx.author} not connected to a voice channel.")
     await connect_to(member.voice.channel)
 
@@ -189,9 +174,10 @@ async def ensure_can_modify(ctx: Context, cmd: dict):
     )
     if not can_remove:
         await ctx.send(
-            f"Only the author of the file or an admin can modify/remove it.",
+            "Only the author of the file or an admin can modify/remove it.",
             delete_after=3,
         )
+
         raise CommandError(f"File {cmd} is not modifiable by {ctx.author}")
 
 
@@ -226,13 +212,13 @@ def filetype(filename: str) -> str:
 
 def check_file(filename: str) -> Tuple[bool, bool, bool, bool, bool]:
     mime_type, mime_text = filetype(filename)
-    soundfont = "audio/x-sfbk" == mime_type or "SoundFont/Bank" in mime_text
+    soundfont = mime_type == "audio/x-sfbk" or "SoundFont/Bank" in mime_text
     if soundfont:
         return False, False, True, False, False
     audio = mime_type.startswith("audio/")
     video = mime_type.startswith("video/")
     archive = mime_type in archive_mimetypes
-    midi = "audio/midi" == mime_type
+    midi = mime_type == "audio/midi"
     return audio or video, archive, soundfont, midi, video
 
 
@@ -247,7 +233,7 @@ def get_audio_info(filename: str) -> Union[dict, None]:
     result = subprocess.run(split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     data = result.stdout.decode()
     data = json.loads(data)
-    if not "streams" in data:
+    if "streams" not in data:
         return None
     data = [s for s in data["streams"] if s["codec_type"] == "audio"]
     if not data:

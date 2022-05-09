@@ -33,8 +33,7 @@ class Music(Cog, name=COG_MUSIC):
             return
 
         cmd = await ensure_command(ctx, name, self.files)
-        pack = "pack" in cmd and cmd["pack"]
-        if pack:
+        if pack := "pack" in cmd and cmd["pack"]:
             await ctx.send(
                 f":file_folder: `!{name}` is a music pack; try using `!random {name}` to toggle its random playback.",
                 delete_after=10,
@@ -87,9 +86,10 @@ class Music(Cog, name=COG_MUSIC):
             return
         if not midi and "info" not in cmd:
             await ctx.send(
-                f"Speed changing is not possible - missing file metadata.",
+                "Speed changing is not possible - missing file metadata.",
                 delete_after=10,
             )
+
             return
 
         if speed != 100:

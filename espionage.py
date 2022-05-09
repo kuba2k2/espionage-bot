@@ -24,7 +24,7 @@ class Espionage(Cog, name="Music commands"):
         self.files = files
         self.sf2s = sf2s
         self.bot.event(self.on_voice_state_update)
-        for name in files.keys():
+        for name in files:
             self.add_command(name)
         print(f"Loaded {len(files)} audio commands.")
 
@@ -87,8 +87,9 @@ class Espionage(Cog, name="Music commands"):
             # play the default file or leave the currently playing file
             await self.play(
                 member.voice.channel,
-                cmd=ESPIONAGE_FILE if not member.guild.voice_client else None,
+                cmd=None if member.guild.voice_client else ESPIONAGE_FILE,
             )
+
             return
 
         # a user joined the channel when the bot was alone

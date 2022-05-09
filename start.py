@@ -27,7 +27,7 @@ async def on_ready():
 
 def migrate(file: dict) -> bool:
     migrated = False
-    version = file["version"] if "version" in file else 1
+    version = file.get("version", 1)
     if version < 2:
         # add missing author info
         if "author" not in file:

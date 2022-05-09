@@ -43,8 +43,7 @@ class Uploading(Cog, name=COG_UPLOADING):
         cmd = await ensure_command(ctx, name, self.files)
         await ensure_can_modify(ctx, cmd)
 
-        pack = "pack" in cmd and cmd["pack"]
-        if pack:
+        if pack := "pack" in cmd and cmd["pack"]:
             await ctx.send(f"`!{name}` is already a music pack.", delete_after=3)
             return
 
@@ -251,7 +250,7 @@ class Uploading(Cog, name=COG_UPLOADING):
         # save cmd for new pack or replaced file
         if not pack or not existing:
             cmd = {
-                "filename": basename(filename if not pack else dirname),
+                "filename": basename(dirname if pack else filename),
                 "help": f"Uploaded by {ctx.author}",
                 "loop": True,
                 "author": {
@@ -260,6 +259,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                 },
                 "version": CMD_VERSION,
             }
+
             fill_audio_info(cmd)
 
         # save filtering flags
