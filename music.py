@@ -20,7 +20,8 @@ class Music(Cog, name=COG_MUSIC):
     async def random(self, ctx: Context):
         """Randomly play files from the global directory."""
         await self.espionage.play(
-            ctx.voice_client.channel,
+            channel=ctx.voice_client.channel,
+            member=ctx.message.author,
             cmd=RANDOM_FILE,
         )
 

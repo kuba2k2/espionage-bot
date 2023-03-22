@@ -241,3 +241,4 @@ uploads/
 *.ogg
 files.json
 soundfonts.json
+log.csv

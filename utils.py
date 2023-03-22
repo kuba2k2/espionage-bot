@@ -266,7 +266,7 @@ def fill_audio_info(cmd: dict):
         return
     cmd["info"] = {
         "sample_rate": int(info["sample_rate"]),
-        "duration": float(info["duration"]),
+        "duration": float(info.get("duration") or 0),
         "channels": int(info["channels"]),
         "codec": info["codec_name"],
     }

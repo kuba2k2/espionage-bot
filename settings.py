@@ -23,6 +23,7 @@ UPLOAD_DIR = getenv("UPLOAD_DIR") or "uploads"
 ESPIONAGE_FILE = getenv("ESPIONAGE_FILE") or die("Espionage file not specified")
 FILES_JSON = getenv("FILES_JSON") or "files.json"
 SF2S_JSON = getenv("SF2S_JSON") or "soundfonts.json"
+LOG_CSV = getenv("LOG_CSV") or "log.csv"
 
 ACTIVITY_NAME = getenv("ACTIVITY_NAME") or "Espionage"
 
@@ -46,6 +47,7 @@ isdir(UPLOAD_PATH) or makedirs(UPLOAD_PATH, exist_ok=True)
 
 FILES_JSON = DATA_PATH + FILES_JSON
 SF2S_JSON = DATA_PATH + SF2S_JSON
+LOG_CSV = DATA_PATH + LOG_CSV
 
 # join espionage file with data path if relative
 if not isabs(ESPIONAGE_FILE):
