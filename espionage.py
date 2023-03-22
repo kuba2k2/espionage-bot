@@ -102,7 +102,7 @@ class Espionage(Cog, name="Music commands"):
             # play the default file or leave the currently playing file
             await self.play(
                 channel=member.voice.channel,
-                member=member.user,
+                member=member,
                 cmd=ESPIONAGE_FILE if not member.guild.voice_client else None,
             )
             return
