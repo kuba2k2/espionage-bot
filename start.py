@@ -1,7 +1,8 @@
+import asyncio
 from os import makedirs, replace, sep
 from os.path import basename, dirname, isdir, isfile, join
 
-from discord import Activity, ActivityType
+from discord import Activity, ActivityType, Intents
 from discord.ext import commands
 from discord.ext.commands import Bot
 
@@ -11,7 +12,9 @@ from settings import ACTIVITY_NAME, BOT_TOKEN, DATA_PATH, UPLOAD_DIR
 from uploading import Uploading
 from utils import fill_audio_info, load_files, load_sf2s, save_files, save_sf2s
 
-client = Bot(command_prefix=commands.when_mentioned_or("!"))
+intents = Intents.default()
+intents.message_content = True
+client = Bot(command_prefix=commands.when_mentioned_or("!"), intents=intents)
 
 
 @client.event
@@ -56,7 +59,7 @@ def migrate(file: dict) -> bool:
     return migrated
 
 
-def main():
+async def main():
     files = load_files()
     sf2s = load_sf2s()
 
@@ -72,11 +75,12 @@ def main():
     if migrated:
         save_sf2s(sf2s)
 
-    client.add_cog(Espionage(bot=client, files=files, sf2s=sf2s))
-    client.add_cog(Music(bot=client, files=files, sf2s=sf2s))
-    client.add_cog(Uploading(bot=client, files=files, sf2s=sf2s))
-    client.run(BOT_TOKEN)
+    await client.add_cog(Espionage(bot=client, files=files, sf2s=sf2s))
+    await client.add_cog(Music(bot=client, files=files, sf2s=sf2s))
+    await client.add_cog(Uploading(bot=client, files=files, sf2s=sf2s))
+    async with client:
+        await client.start(BOT_TOKEN)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
