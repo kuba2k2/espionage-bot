@@ -16,6 +16,7 @@ RANDOM_FILE = "random"
 MIDI_IMPL_NONE = "nomidi"
 MIDI_IMPL_FLUIDSYNTH = "fluidsynth"
 MIDI_IMPL_TIMIDITY = "timidity"
+PACK_ICON = b"\xf0\x9f\x93\x81".decode()
 
 BOT_TOKEN = getenv("BOT_TOKEN") or die("Bot token not provided")
 DATA_PATH = getenv("DATA_PATH") or "data/"
@@ -24,6 +25,7 @@ ESPIONAGE_FILE = getenv("ESPIONAGE_FILE") or die("Espionage file not specified")
 FILES_JSON = getenv("FILES_JSON") or "files.json"
 SF2S_JSON = getenv("SF2S_JSON") or "soundfonts.json"
 LOG_CSV = getenv("LOG_CSV") or "log.csv"
+NICKNAME_STATUS = getenv("NICKNAME_STATUS") == "true"
 
 ACTIVITY_NAME = getenv("ACTIVITY_NAME") or "Espionage"
 

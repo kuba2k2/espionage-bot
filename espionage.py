@@ -4,7 +4,7 @@ from random import choice as random_choice
 from time import time
 from typing import Dict, Optional, Set
 
-from discord import Member, User, VoiceChannel, VoiceClient, VoiceState
+from discord import Guild, Member, User, VoiceChannel, VoiceClient, VoiceState
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Command, Context
 
@@ -13,6 +13,7 @@ from settings import (
     LOG_CSV,
     MIDI_IMPL,
     MIDI_IMPL_NONE,
+    PACK_ICON,
     RANDOM_FILE,
     UPLOAD_PATH,
 )
@@ -46,7 +47,7 @@ class Espionage(Cog, name="Music commands"):
         cmd = self.files[name]
         description = cmd["help"]
         if "pack" in cmd and cmd["pack"]:
-            description = f"\ud83d\udcc1 {description}"
+            description = f"{PACK_ICON} {description}"
         if not description:
             description = (
                 f"Loop {cmd['filename']}" if cmd["loop"] else f"Play {cmd['filename']}"
@@ -80,14 +81,18 @@ class Espionage(Cog, name="Music commands"):
         after: VoiceState,
     ):
         if member.id == self.bot.user.id:
-            # the bot was moved to (or joined) the AFK channel
             if after.mute or after.afk:
+                # the bot was moved to (or joined) the AFK channel
                 await member.edit(mute=False)
+            if not after.channel:
+                # the bot has been disconnected from a channel
+                await self.update_nickname(member.guild, None)
             return
 
         # the bot is the only connected user
         if is_alone(member.guild.voice_client):
             await disconnect(member.guild.voice_client)
+            await self.update_nickname(member.guild, None)
 
         # the channel is unchanged
         if before.channel == after.channel:
@@ -121,6 +126,28 @@ class Espionage(Cog, name="Music commands"):
                 cmd=None,
             )
 
+    @staticmethod
+    async def update_nickname(guild: Guild, name: str):
+        me = guild.me
+        current_nick = me.nick or me.name
+        base_name = (
+            current_nick.partition("|")[2].strip()
+            if "|" in current_nick
+            else current_nick
+        )
+        new_nick = base_name
+        if name:
+            suffix = f" | {base_name}"
+            max_len = 32 - len(suffix)
+            if max_len > 0:
+                if len(name) > max_len:
+                    name = name[0 : max_len - 3] + "..."
+                new_nick = name[0:max_len] + suffix
+        if current_nick == new_nick:
+            return
+        print(f"Updating nickname on '{guild.name}': '{current_nick}' -> '{new_nick}'")
+        await me.edit(nick=new_nick)
+
     def safe_random(self, guild_id: int, items: list):
         if guild_id not in self.random_queue:
             queue = self.random_queue[guild_id] = set()
@@ -130,6 +157,8 @@ class Espionage(Cog, name="Music commands"):
         def key(item) -> str:
             if isinstance(item, dict):
                 return item["filename"]
+            if isinstance(item, tuple):
+                return item[1]["filename"]
             return item
 
         # reset the queue if all choices were played
@@ -137,14 +166,17 @@ class Espionage(Cog, name="Music commands"):
             for item in items:
                 queue.remove(key(item))
 
+        # failsafe
+        random_item = random_choice(items)
         # pick a random item that wasn't used before
-        tries = 0
-        while tries < len(items):
+        while len(items) > 0:
             item = random_choice(items)
+            items.remove(item)
             if key(item) not in queue:
                 queue.add(key(item))
                 return item
-            tries += 1
+        # failsafe
+        return random_item
 
     async def play(self, channel: VoiceChannel, member: Member, cmd: str):
         # connect to the specified voice channel
@@ -169,14 +201,19 @@ class Espionage(Cog, name="Music commands"):
 
         # store cmd for usage in repeat(e)
         cmd_orig = cmd
+        # for showing playing status (default to ESPIONAGE_FILE - no status)
+        cmd_name = None
         # to simplify the checks below
         random = cmd == RANDOM_FILE
+        # default value
+        pack = False
 
         if random:
             # "random" specified as cmd, change to a random command dict
-            cmd = self.safe_random(guild_id, list(self.files.values()))
+            cmd_name, cmd = self.safe_random(guild_id, list(self.files.items()))
         elif cmd and cmd != ESPIONAGE_FILE:
             # retrieve command info dict
+            cmd_name = cmd
             cmd = self.files[cmd]
         else:
             # cmd is ESPIONAGE_FILE or None (do not change playing file)
@@ -197,6 +234,7 @@ class Espionage(Cog, name="Music commands"):
 
         def leave(e):
             self.bot.loop.create_task(disconnect(voice))
+            self.bot.loop.create_task(self.update_nickname(voice.guild, None))
 
         def repeat(e):
             self.repeat(channel, member, cmd=cmd_orig, repeated=True)
@@ -263,10 +301,21 @@ class Espionage(Cog, name="Music commands"):
                 return
             sf2 = self.sf2s[sf2] if sf2 in self.sf2s else random_choice(sf2s)
             sf2_name = real_filename(sf2)
-            print(f"Playing on {channel.guild}: '{filename}' with SF2 '{sf2_name}' ...")
+            print(
+                f"Playing command '{cmd_name}' "
+                f"on {channel.guild}: '{filename}' "
+                f"with SF2 '{sf2_name}' ..."
+            )
             source = FFmpegMidiOpusAudio(filename, sf2_name, rate)
         else:
-            print(f"Playing on {channel.guild}: '{filename}' ...")
+            print(f"Playing command '{cmd_name}' on {channel.guild}: '{filename}' ...")
             source = FFmpegFileOpusAudio(filename, rate)
 
+        if cmd_name:
+            new_nick = f"!{cmd_name}"
+            if pack:
+                new_nick = f"{PACK_ICON} {new_nick}"
+        else:
+            new_nick = None
+        self.bot.loop.create_task(self.update_nickname(channel.guild, new_nick))
         voice.play(source, after=loop and repeat or leave)
