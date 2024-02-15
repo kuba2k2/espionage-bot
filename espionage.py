@@ -1,5 +1,5 @@
 from glob import glob
-from os.path import relpath
+from os.path import isfile, relpath
 from random import choice as random_choice
 from time import time
 from typing import Dict, Optional, Set, Tuple
@@ -262,6 +262,11 @@ class Espionage(Cog, name="Music commands"):
 
         def repeat(e):
             self.repeat(channel, member, cmd=cmd_orig, repeated=True)
+
+        if not isfile(filename):
+            print("FILE DOES NOT EXIST", filename)
+            leave(None)
+            return
 
         # fix for disabling !loop while playing
         if repeated and not loop:
