@@ -111,6 +111,12 @@ class Music(Cog, name=COG_MUSIC):
 
         await ctx.send(f":v: Speed of `!{name}` set to {speed}%.", delete_after=3)
 
+        if ctx.guild.voice_client:
+            from espionage import Espionage
+
+            self.espionage: Espionage
+            self.espionage.reload(guild=ctx.guild, rewind=False)
+
     @commands.command()
     @commands.guild_only()
     async def sf(self, ctx: Context, name: str = None, *sf2_names):

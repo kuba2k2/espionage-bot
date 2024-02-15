@@ -47,7 +47,14 @@ magic_text = Magic(mime=False)
 
 
 class FFmpegFileOpusAudio(FFmpegOpusAudio):
-    def __init__(self, filename: str, rate: int, *args, **kwargs):
+    def __init__(
+        self,
+        filename: str,
+        rate: int,
+        start: float,
+        *args,
+        **kwargs,
+    ):
         self.filename = filename
 
         if rate:
@@ -55,11 +62,22 @@ class FFmpegFileOpusAudio(FFmpegOpusAudio):
         else:
             opts = ""
 
+        if start:
+            opts += f" -ss {start:.02f}"
+
         super().__init__(filename, options=opts, *args, **kwargs)
 
 
 class FFmpegMidiOpusAudio(FFmpegOpusAudio):
-    def __init__(self, filename: str, soundfont: str, rate: int, *args, **kwargs):
+    def __init__(
+        self,
+        filename: str,
+        soundfont: str,
+        rate: int,
+        start: float,
+        *args,
+        **kwargs,
+    ):
         self.filename = filename.replace("\\", "/")
         self.soundfont = soundfont.replace("\\", "/")
         self.impl = MIDI_IMPL
