@@ -244,8 +244,11 @@ class Espionage(Cog, name="Music commands"):
             leave(None)
             return
 
-        # the current source differs from the desired source
-        if voice.source and cmd and (voice.source.filename != filename or random):
+        # the current source differs from the desired source:
+        # if voice.source and cmd and (voice.source.filename != filename or random):
+
+        # something is currently playing, just restart it:
+        if voice.source and cmd:
             # avoid going back to the previous file again when repeat() is called
             # from after= in voice.play()
             if repeated and voice.is_playing():
@@ -263,14 +266,15 @@ class Espionage(Cog, name="Music commands"):
             voice.resume()
             return
 
-        # file not specified - not to change the already playing file
-        # this line is not above probably to voice.resume() if paused
+        # file not specified - not changing the already playing file
+        # this line is here to call voice.resume() if paused
         if not cmd:
             return
 
         midi = "midi" in cmd and cmd["midi"]
 
         rate = None
+        speed: int
         speed = cmd["speed"] if "speed" in cmd else 100
         if speed != 100 and "info" in cmd:
             rate = cmd["info"]["sample_rate"]
@@ -290,9 +294,11 @@ class Espionage(Cog, name="Music commands"):
                     f"{member.name}#{member.discriminator}",
                     cmd_orig or "None",
                     relpath(filename, UPLOAD_PATH),
+                    f"{speed}%",
                 ]
                 f.write(";".join(fields) + "\n")
 
+        extra_info = ""
         if midi:
             sf2s = cmd["sf2s"]
             sf2 = random_choice(sf2s) if sf2s else None
@@ -301,15 +307,18 @@ class Espionage(Cog, name="Music commands"):
                 return
             sf2 = self.sf2s[sf2] if sf2 in self.sf2s else random_choice(sf2s)
             sf2_name = real_filename(sf2)
-            print(
-                f"Playing command '{cmd_name}' "
-                f"on {channel.guild}: '{filename}' "
-                f"with SF2 '{sf2_name}' ..."
-            )
+            extra_info = f"with SF2 '{sf2_name}' "
             source = FFmpegMidiOpusAudio(filename, sf2_name, rate)
         else:
-            print(f"Playing command '{cmd_name}' on {channel.guild}: '{filename}' ...")
             source = FFmpegFileOpusAudio(filename, rate)
+
+        # print log info
+        print(
+            f"Playing command '{cmd_name}' "
+            f"on {channel.guild} "
+            f"{extra_info}- "
+            f"speed: {speed}%"
+        )
 
         if cmd_name:
             new_nick = f"!{cmd_name}"
