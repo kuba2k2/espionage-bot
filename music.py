@@ -5,7 +5,13 @@ from discord.ext.commands import Bot, Cog, Context
 
 from espionage import Espionage
 from settings import COG_ESPIONAGE, COG_MUSIC, RANDOM_FILE
-from utils import check_playing_cmd, ensure_command, ensure_voice, save_files
+from utils import (
+    check_playing_cmd,
+    ensure_command,
+    ensure_voice,
+    normalize_percent,
+    save_files,
+)
 
 
 class Music(Cog, name=COG_MUSIC):
@@ -74,22 +80,7 @@ class Music(Cog, name=COG_MUSIC):
             )
             return
 
-        is_percent = False
-        if speed.endswith("%"):
-            is_percent = True
-
-        speed = speed.rstrip("%")
-        try:
-            speed = float(speed)
-        except ValueError:
-            await ctx.send(f":x: `{speed}` is not a valid number.", delete_after=3)
-            return
-
-        # 0.0-5.0 -> 0%-500%
-        if not is_percent and speed <= 5.0:
-            speed *= 100
-        speed = int(speed)
-
+        speed = await normalize_percent(ctx, speed)
         if speed not in range(1, 10001):
             await ctx.send(f":x: Speed must be in [1,10000]% range.", delete_after=3)
             return

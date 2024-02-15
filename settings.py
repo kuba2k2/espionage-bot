@@ -29,9 +29,10 @@ NICKNAME_STATUS = getenv("NICKNAME_STATUS") == "true"
 
 ACTIVITY_NAME = getenv("ACTIVITY_NAME") or "Espionage"
 
-COG_ESPIONAGE = getenv("COG_ESPIONAGE") or "Music commands"
-COG_MUSIC = getenv("COG_MUSIC") or "Playback options"
-COG_UPLOADING = getenv("COG_UPLOADING") or "Music Uploading"
+COG_ESPIONAGE = getenv("COG_ESPIONAGE") or "[0] Music commands"
+COG_MUSIC = getenv("COG_MUSIC") or "[1] Music options"
+COG_EQUALIZER = getenv("COG_EQUALIZER") or "[2] Equalizer"
+COG_UPLOADING = getenv("COG_UPLOADING") or "[3] Music Uploading"
 
 MIDI_IMPL = getenv("MIDI_IMPL") or MIDI_IMPL_NONE
 MIDI_MUTE_124 = getenv("MIDI_MUTE_124") == "true"

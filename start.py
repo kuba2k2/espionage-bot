@@ -8,6 +8,7 @@ from discord import Activity, ActivityType, Intents
 from discord.ext import commands
 from discord.ext.commands import Bot
 
+from equalizer import Equalizer
 from espionage import Espionage
 from music import Music
 from settings import ACTIVITY_NAME, BOT_TOKEN, DATA_PATH, UPLOAD_DIR
@@ -82,6 +83,7 @@ async def main():
     await client.add_cog(Espionage(bot=client, files=files, sf2s=sf2s))
     await client.add_cog(Music(bot=client, files=files, sf2s=sf2s))
     await client.add_cog(Uploading(bot=client, files=files, sf2s=sf2s))
+    await client.add_cog(Equalizer(bot=client, files=files, sf2s=sf2s))
     async with client:
         await client.start(BOT_TOKEN)
 

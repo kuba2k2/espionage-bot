@@ -51,15 +51,14 @@ class FFmpegFileOpusAudio(FFmpegOpusAudio):
     def __init__(
         self,
         filename: str,
-        rate: int,
+        filters: List[str],
         start: float,
         *args,
         **kwargs,
     ):
         self.filename = filename
-
-        if rate:
-            opts = f"-af asetrate={rate}"
+        if filters:
+            opts = "-af " + ",".join(filters)
         else:
             opts = ""
 
@@ -74,7 +73,7 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
         self,
         filename: str,
         soundfont: str,
-        rate: int,
+        filters: List[str],
         start: float,
         *args,
         **kwargs,
@@ -82,7 +81,6 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
         self.filename = filename.replace("\\", "/")
         self.soundfont = soundfont.replace("\\", "/")
         self.impl = MIDI_IMPL
-        self.rate = rate
 
         if self.impl == MIDI_IMPL_FLUIDSYNTH:
             before_opts = [
@@ -93,8 +91,8 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
         else:
             before_opts = []
 
-        if rate:
-            opts = f"-af asetrate={rate},aformat=channel_layouts=2"
+        if filters:
+            opts = "-af " + ",".join(filters)
         else:
             opts = ""
 
@@ -210,6 +208,12 @@ async def ensure_voice(_, ctx: Context):
     await connect_to(member.voice.channel)
 
 
+async def ensure_playing(_, ctx: Context):
+    if not ctx.guild.voice_client:
+        await ctx.send(f":x: Not playing in a voice channel.", delete_after=3)
+        raise CommandError(f"Bot not connected to a voice channel.")
+
+
 async def ensure_can_modify(ctx: Context, cmd: dict):
     can_remove = ctx.author.id == cmd["author"]["id"]
     if ctx.author.guild:
@@ -245,6 +249,22 @@ async def check_playing_cmd(
         if replay_info:
             return [replay_info.cmd_name, *args[0:-1]]
     return [*args]
+
+
+async def normalize_percent(ctx: Context, value: str) -> int:
+    is_percent = False
+    if value.endswith("%"):
+        is_percent = True
+    value = value.rstrip("%")
+    try:
+        value = float(value)
+    except ValueError:
+        await ctx.send(f":x: `{value}` is not a valid number.", delete_after=3)
+        raise ValueError(f"{value} is not a valid number.")
+    # 0.0-5.0 -> 0%-500%
+    if not is_percent and value <= 5.0:
+        value *= 100
+    return int(value)
 
 
 def pack_dirname(filename: str) -> str:
