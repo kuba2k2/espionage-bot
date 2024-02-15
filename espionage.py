@@ -9,6 +9,7 @@ from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Command, Context
 
 from settings import (
+    COG_ESPIONAGE,
     ESPIONAGE_FILE,
     LOG_CSV,
     MIDI_IMPL,
@@ -28,7 +29,7 @@ from utils import (
 )
 
 
-class Espionage(Cog, name="Music commands"):
+class Espionage(Cog, name=COG_ESPIONAGE):
     random_queue: Dict[int, Set[str]]  # {guild_id: {...filename}}
     # {guild_id: (channel, member, cmd, timestamp, speed)}
     replay_info: Dict[int, Tuple[VoiceChannel, Member, Optional[str], float, int]]

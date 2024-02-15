@@ -193,7 +193,7 @@ async def disconnect(voice: VoiceClient):
 async def ensure_voice(_, ctx: Context):
     member: Member = len(ctx.args) > 2 and ctx.args[2] or ctx.author
     if not member.voice:
-        await ctx.send(f"User is not connected to a voice channel.", delete_after=3)
+        await ctx.send(f":x: User is not connected to a voice channel.", delete_after=3)
         raise CommandError(f"{ctx.author} not connected to a voice channel.")
     await connect_to(member.voice.channel)
 
@@ -208,7 +208,7 @@ async def ensure_can_modify(ctx: Context, cmd: dict):
         )
     if not can_remove:
         await ctx.send(
-            f"Only the author of the file or an admin can modify/remove it.",
+            f":x: Only the author of the file or an admin can modify/remove it.",
             delete_after=3,
         )
         raise CommandError(f"File {cmd} is not modifiable by {ctx.author}")
@@ -216,7 +216,7 @@ async def ensure_can_modify(ctx: Context, cmd: dict):
 
 async def ensure_command(ctx: Context, name: str, files: Dict[str, dict]) -> dict:
     if name not in files:
-        await ctx.send(f"The command `!{name}` does not exist.", delete_after=3)
+        await ctx.send(f":x: The command `!{name}` does not exist.", delete_after=3)
         raise CommandError(f"No such command: {name}")
     return files[name]
 

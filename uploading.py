@@ -35,7 +35,7 @@ class Uploading(Cog, name=COG_UPLOADING):
     async def pack(self, ctx: Context, name: str = None):
         """Change the command to be a music pack."""
         if not name:
-            await ctx.send("Usage: `!pack <command name>`.", delete_after=3)
+            await ctx.send(":question: Usage: `!pack <command name>`.", delete_after=3)
             return
 
         # get the command or raise an error
@@ -44,7 +44,7 @@ class Uploading(Cog, name=COG_UPLOADING):
 
         pack = "pack" in cmd and cmd["pack"]
         if pack:
-            await ctx.send(f"`!{name}` is already a music pack.", delete_after=3)
+            await ctx.send(f":x: `!{name}` is already a music pack.", delete_after=3)
             return
 
         # TODO handle situation when the file is currently playing
@@ -66,7 +66,7 @@ class Uploading(Cog, name=COG_UPLOADING):
         # save the command descriptors
         save_files(self.files)
         await ctx.send(
-            f"Converted `!{name}` as a music pack. Try uploading more files with `!upload {name}`.",
+            f":v: Converted `!{name}` as a music pack. Try uploading more files with `!upload {name}`.",
             delete_after=10,
         )
 
@@ -76,13 +76,13 @@ class Uploading(Cog, name=COG_UPLOADING):
         message: Message = ctx.message
         if not name:
             await ctx.send(
-                "Usage: `!upload <command name>`. Attach at least one audio file.",
+                ":question: Usage: `!upload <command name>`. Attach at least one audio file.",
                 delete_after=3,
             )
             return
 
         if len(message.attachments) == 0:
-            await ctx.send("You must add at least one attachment.", delete_after=3)
+            await ctx.send(":x: You must add at least one attachment.", delete_after=3)
             return
 
         cmd = None
@@ -114,7 +114,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                 await ensure_can_modify(ctx, cmd)
                 # cannot replace single with multiple files
                 if not single:
-                    await ctx.send(f"Use `!pack {name}` first.", delete_after=3)
+                    await ctx.send(f":x: Use `!pack {name}` first.", delete_after=3)
                     return
 
         # enable pack for multiple attachments
@@ -148,7 +148,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                 if not pack:
                     # cannot replace single with multiple files
                     if existing:
-                        await ctx.send(f"Use `!pack {name}` first.", delete_after=3)
+                        await ctx.send(f":x: Use `!pack {name}` first.", delete_after=3)
                         unlink(filename)
                         return
                     # create a new pack
@@ -223,7 +223,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                 self.sf2s[name] = sf2
                 save_sf2s(self.sf2s)
                 await ctx.send(
-                    f"Added **{sf2_name}**! Use `!sf <midi name> {name}` to apply the SoundFont.",
+                    f":v: Added **{sf2_name}**! Use `!sf <midi name> {name}` to apply the SoundFont.",
                     delete_after=10,
                 )
                 return
@@ -236,7 +236,7 @@ class Uploading(Cog, name=COG_UPLOADING):
 
         # raise an error if no files saved
         if not saved_count:
-            await ctx.send(f"Unrecognized file: **{invalid_name}**", delete_after=3)
+            await ctx.send(f":x: Unrecognized file: **{invalid_name}**", delete_after=3)
             # to be safe
             if isfile(filename):
                 unlink(filename)
@@ -277,18 +277,18 @@ class Uploading(Cog, name=COG_UPLOADING):
         save_files(self.files)
 
         if pack and existing and saved_count == 1:
-            text = f"Added **{saved_name}** to `!{name}`."
+            text = f":v: Added **{saved_name}** to `!{name}`."
         elif saved_count > 1:
-            text = f"Uploaded **{saved_count}** file(s) to `!{name}`."
+            text = f":v: Uploaded **{saved_count}** file(s) to `!{name}`."
         elif not existing:
-            text = f"File **{saved_name}** uploaded as `!{name}`."
+            text = f":v: File **{saved_name}** uploaded as `!{name}`."
         else:
-            text = f"Replaced `!{name}` with **{saved_name}**."
+            text = f":v: Replaced `!{name}` with **{saved_name}**."
 
         if invalid_count == 1:
-            text += f"\nFile **{invalid_name}** was unrecognized."
+            text += f"\n:x: File **{invalid_name}** was unrecognized."
         elif invalid_count:
-            text += f"\n**{invalid_count}** file(s) were unrecognized."
+            text += f"\n:x: **{invalid_count}** file(s) were unrecognized."
 
         await ctx.send(text, delete_after=10)
 
@@ -296,7 +296,9 @@ class Uploading(Cog, name=COG_UPLOADING):
     async def aremove(self, ctx: Context, name: str = None):
         """Remove the specified audio."""
         if not name:
-            await ctx.send("Usage: `!aremove <command name>`.", delete_after=3)
+            await ctx.send(
+                ":question: Usage: `!aremove <command name>`.", delete_after=3
+            )
             return
 
         # get the command or raise an error
@@ -313,7 +315,7 @@ class Uploading(Cog, name=COG_UPLOADING):
 
         # save the command descriptors
         save_files(self.files)
-        await ctx.send(f"Command `!{name}` removed.", delete_after=3)
+        await ctx.send(f":v: Command `!{name}` removed.", delete_after=3)
 
     @commands.command()
     async def description(self, ctx: Context, name: str = None, *args):
@@ -321,7 +323,8 @@ class Uploading(Cog, name=COG_UPLOADING):
         description = " ".join(args)
         if not name or not description:
             await ctx.send(
-                "Usage: `!description <command name> <description>`.", delete_after=3
+                ":question: Usage: `!description <command name> <description>`.",
+                delete_after=3,
             )
             return
 
@@ -335,5 +338,5 @@ class Uploading(Cog, name=COG_UPLOADING):
         # save the command descriptors
         save_files(self.files)
         await ctx.send(
-            f"Description of `!{name}` set to `{description}`.", delete_after=3
+            f":v: Description of `!{name}` set to `{description}`.", delete_after=3
         )

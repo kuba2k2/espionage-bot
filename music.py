@@ -3,6 +3,7 @@ from typing import Dict
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Context
 
+from espionage import Espionage
 from settings import COG_ESPIONAGE, COG_MUSIC, RANDOM_FILE
 from utils import ensure_command, ensure_voice, save_files
 
@@ -12,7 +13,7 @@ class Music(Cog, name=COG_MUSIC):
         self.bot = bot
         self.files = files
         self.sf2s = sf2s
-        self.espionage = self.bot.get_cog(COG_ESPIONAGE)
+        self.espionage: Espionage = self.bot.get_cog(COG_ESPIONAGE)
 
     @commands.command()
     @commands.guild_only()
@@ -29,14 +30,14 @@ class Music(Cog, name=COG_MUSIC):
     async def loop(self, ctx: Context, name: str = None):
         """Enable/disable looping of the specified audio."""
         if not name:
-            await ctx.send("Usage: `!loop <command name>`.", delete_after=3)
+            await ctx.send(":question: Usage: `!loop <command name>`.", delete_after=3)
             return
 
         cmd = await ensure_command(ctx, name, self.files)
         pack = "pack" in cmd and cmd["pack"]
         if pack:
             await ctx.send(
-                f":file_folder: `!{name}` is a music pack; try using `!random {name}` to toggle its random playback.",
+                f":x: :file_folder: `!{name}` is a music pack; try using `!random {name}` to toggle its random playback.",
                 delete_after=10,
             )
             return
@@ -51,18 +52,14 @@ class Music(Cog, name=COG_MUSIC):
 
         if cmd["loop"]:
             await ctx.send(
-                f":white_check_mark: Looping enabled for `!{name}`.", delete_after=3
+                f":v: :white_check_mark: Looping enabled for `!{name}`.", delete_after=3
             )
         else:
-            await ctx.send(f":x: Looping disabled for `!{name}`.", delete_after=3)
+            await ctx.send(f":v: :x: Looping disabled for `!{name}`.", delete_after=3)
 
     @commands.command()
     async def speed(self, ctx: Context, name: str = None, speed: str = None):
         """Set the playing speed (percent)."""
-        from espionage import Espionage
-
-        self.espionage: Espionage
-
         if ctx.guild and ctx.channel.guild.voice_client:
             replay_info = self.espionage.replay_info.get(ctx.channel.guild.id, None)
             if replay_info and name and not speed:
@@ -72,12 +69,12 @@ class Music(Cog, name=COG_MUSIC):
         if not speed:
             if name and name in self.files:
                 await ctx.send(
-                    "Usage: `!speed [command name] <speed%>`.",
+                    ":question: Usage: `!speed [command name] <speed%>`.",
                     delete_after=3,
                 )
             else:
                 await ctx.send(
-                    "Usage: `!speed <command name> <speed%>`.",
+                    ":question: Usage: `!speed <command name> <speed%>`.",
                     delete_after=3,
                 )
             return
@@ -136,14 +133,14 @@ class Music(Cog, name=COG_MUSIC):
         """List or set SoundFonts for MIDI files."""
         if not name:
             lines = [
-                "Available SoundFonts:",
+                ":v: Available SoundFonts:",
             ]
             max_length = max(len(name) for name in self.sf2s.keys())
             for name, sf2 in self.sf2s.items():
                 padding = " " * (max_length - len(name) + 2)
                 lines.append(f"  {name} {padding} {sf2['help']}")
             lines.append(
-                "\nUse !sf <midi name> <sf name> to apply a SoundFont to a file."
+                "\n:question: Use !sf <midi name> <sf name> to apply a SoundFont to a file."
             )
             lines = "\n".join(lines)
             await ctx.send(f"```\n{lines}```")
@@ -153,7 +150,7 @@ class Music(Cog, name=COG_MUSIC):
         midi = "midi" in cmd and cmd["midi"]
         if not midi:
             await ctx.send(
-                f"`!{name}` is not and doesn't contain MIDI files.", delete_after=3
+                f":x: `!{name}` is not and doesn't contain MIDI files.", delete_after=3
             )
             return
 
@@ -161,7 +158,7 @@ class Music(Cog, name=COG_MUSIC):
             sf2s = cmd["sf2s"]
             sf2s = "\n".join(sf2s)
             await ctx.send(
-                f"`!{name}` is currently using these SoundFonts:\n```{sf2s}```"
+                f":v: `!{name}` is currently using these SoundFonts:\n```{sf2s}```"
             )
             return
 
@@ -172,4 +169,4 @@ class Music(Cog, name=COG_MUSIC):
 
         cmd["sf2s"] = sf2_names
         save_files(self.files)
-        await ctx.send(f"Updated SoundFonts for `!{name}`.", delete_after=3)
+        await ctx.send(f":v: Updated SoundFonts for `!{name}`.", delete_after=3)
