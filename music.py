@@ -26,7 +26,6 @@ class Music(Cog, name=COG_MUSIC):
         )
 
     @commands.command()
-    @commands.guild_only()
     async def loop(self, ctx: Context, name: str = None):
         """Enable/disable looping of the specified audio."""
         if not name:
@@ -58,14 +57,13 @@ class Music(Cog, name=COG_MUSIC):
             await ctx.send(f":x: Looping disabled for `!{name}`.", delete_after=3)
 
     @commands.command()
-    @commands.guild_only()
     async def speed(self, ctx: Context, name: str = None, speed: str = None):
         """Set the playing speed (percent)."""
         from espionage import Espionage
 
         self.espionage: Espionage
 
-        if ctx.channel.guild.voice_client:
+        if ctx.guild and ctx.channel.guild.voice_client:
             replay_info = self.espionage.replay_info.get(ctx.channel.guild.id, None)
             if replay_info and name and not speed:
                 speed = name
@@ -130,11 +128,10 @@ class Music(Cog, name=COG_MUSIC):
 
         await ctx.send(f":v: Speed of `!{name}` set to {speed}%.", delete_after=3)
 
-        if ctx.guild.voice_client:
+        if ctx.guild and ctx.guild.voice_client:
             self.espionage.reload(guild=ctx.guild, rewind=False)
 
     @commands.command()
-    @commands.guild_only()
     async def sf(self, ctx: Context, name: str = None, *sf2_names):
         """List or set SoundFonts for MIDI files."""
         if not name:

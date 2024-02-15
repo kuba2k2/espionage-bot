@@ -32,7 +32,6 @@ class Uploading(Cog, name=COG_UPLOADING):
         self.espionage = self.bot.get_cog(COG_ESPIONAGE)
 
     @commands.command()
-    @commands.guild_only()
     async def pack(self, ctx: Context, name: str = None):
         """Change the command to be a music pack."""
         if not name:
@@ -72,7 +71,6 @@ class Uploading(Cog, name=COG_UPLOADING):
         )
 
     @commands.command()
-    @commands.guild_only()
     async def upload(self, ctx: Context, name: str = None):
         """Upload the attached file(s) as a command."""
         message: Message = ctx.message
@@ -217,7 +215,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                     "help": sf2_name,
                     "author": {
                         "id": ctx.author.id,
-                        "guild": ctx.guild.id,
+                        "guild": ctx.guild.id if ctx.guild else None,
                     },
                     "version": CMD_VERSION,
                 }
@@ -256,7 +254,7 @@ class Uploading(Cog, name=COG_UPLOADING):
                 "loop": True,
                 "author": {
                     "id": ctx.author.id,
-                    "guild": ctx.guild.id,
+                    "guild": ctx.guild.id if ctx.guild else None,
                 },
                 "version": CMD_VERSION,
             }
@@ -295,7 +293,6 @@ class Uploading(Cog, name=COG_UPLOADING):
         await ctx.send(text, delete_after=10)
 
     @commands.command()
-    @commands.guild_only()
     async def aremove(self, ctx: Context, name: str = None):
         """Remove the specified audio."""
         if not name:
@@ -319,7 +316,6 @@ class Uploading(Cog, name=COG_UPLOADING):
         await ctx.send(f"Command `!{name}` removed.", delete_after=3)
 
     @commands.command()
-    @commands.guild_only()
     async def description(self, ctx: Context, name: str = None, *args):
         """Change the description."""
         description = " ".join(args)
@@ -331,7 +327,6 @@ class Uploading(Cog, name=COG_UPLOADING):
 
         # get the command or raise an error
         cmd = await ensure_command(ctx, name, self.files)
-        await ensure_can_modify(ctx, cmd)
         # remove the command to update help text
         self.espionage.remove_command(name)
         cmd["help"] = description

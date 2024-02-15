@@ -200,11 +200,12 @@ async def ensure_voice(_, ctx: Context):
 
 async def ensure_can_modify(ctx: Context, cmd: dict):
     can_remove = ctx.author.id == cmd["author"]["id"]
-    can_remove = (
-        can_remove
-        or ctx.author.guild.id == cmd["author"]["guild"]
-        and ctx.author.guild_permissions.administrator
-    )
+    if ctx.author.guild:
+        can_remove = (
+            can_remove
+            or ctx.author.guild.id == cmd["author"]["guild"]
+            and ctx.author.guild_permissions.administrator
+        )
     if not can_remove:
         await ctx.send(
             f"Only the author of the file or an admin can modify/remove it.",
