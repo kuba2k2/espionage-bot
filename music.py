@@ -61,8 +61,27 @@ class Music(Cog, name=COG_MUSIC):
     @commands.guild_only()
     async def speed(self, ctx: Context, name: str = None, speed: str = None):
         """Set the playing speed (percent)."""
-        if not name or not speed:
-            await ctx.send("Usage: `!speed <command name> <speed%>`.", delete_after=3)
+        from espionage import Espionage
+
+        self.espionage: Espionage
+
+        if ctx.channel.guild.voice_client:
+            replay_info = self.espionage.replay_info.get(ctx.channel.guild.id, None)
+            if replay_info and name and not speed:
+                speed = name
+                _, _, name, _, _ = replay_info
+
+        if not speed:
+            if name and name in self.files:
+                await ctx.send(
+                    "Usage: `!speed [command name] <speed%>`.",
+                    delete_after=3,
+                )
+            else:
+                await ctx.send(
+                    "Usage: `!speed <command name> <speed%>`.",
+                    delete_after=3,
+                )
             return
 
         is_percent = False
@@ -76,8 +95,8 @@ class Music(Cog, name=COG_MUSIC):
             await ctx.send(f":x: `{speed}` is not a valid number.", delete_after=3)
             return
 
-        # 0.0-10.0 -> 0%-1000%
-        if not is_percent and speed <= 10.0:
+        # 0.0-5.0 -> 0%-500%
+        if not is_percent and speed <= 5.0:
             speed *= 100
         speed = int(speed)
 
@@ -112,9 +131,6 @@ class Music(Cog, name=COG_MUSIC):
         await ctx.send(f":v: Speed of `!{name}` set to {speed}%.", delete_after=3)
 
         if ctx.guild.voice_client:
-            from espionage import Espionage
-
-            self.espionage: Espionage
             self.espionage.reload(guild=ctx.guild, rewind=False)
 
     @commands.command()
