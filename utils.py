@@ -1,10 +1,11 @@
 import json
 import subprocess
 import sys
+from dataclasses import dataclass
 from os import mkdir
 from os.path import isabs, isdir, isfile, join
 from shlex import quote, split
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from discord import (
     ClientException,
@@ -168,6 +169,17 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
             return process
 
 
+@dataclass
+class ReplayInfo:
+    channel: VoiceChannel
+    member: Member
+    cmd: dict
+    cmd_name: str
+    cmd_orig: str
+    timestamp: float
+    speed: int
+
+
 async def connect_to(channel: VoiceChannel) -> VoiceClient:
     guild: Guild = channel.guild
     voice: VoiceClient = guild.voice_client
@@ -219,6 +231,20 @@ async def ensure_command(ctx: Context, name: str, files: Dict[str, dict]) -> dic
         await ctx.send(f":x: The command `!{name}` does not exist.", delete_after=3)
         raise CommandError(f"No such command: {name}")
     return files[name]
+
+
+async def check_playing_cmd(
+    ctx: Context,
+    espionage,
+    *args: str,
+) -> List[Optional[str]]:
+    if args[0] in espionage.files:
+        return [*args]
+    if ctx.guild and ctx.channel.guild.voice_client:
+        replay_info: ReplayInfo = espionage.replay_info.get(ctx.channel.guild.id, None)
+        if replay_info:
+            return [replay_info.cmd_name, *args[0:-1]]
+    return [*args]
 
 
 def pack_dirname(filename: str) -> str:

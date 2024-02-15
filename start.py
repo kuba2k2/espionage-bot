@@ -1,7 +1,9 @@
 import asyncio
+import logging
 from os import makedirs, replace, sep
 from os.path import basename, dirname, isdir, isfile, join
 
+import discord
 from discord import Activity, ActivityType, Intents
 from discord.ext import commands
 from discord.ext.commands import Bot
@@ -11,6 +13,8 @@ from music import Music
 from settings import ACTIVITY_NAME, BOT_TOKEN, DATA_PATH, UPLOAD_DIR
 from uploading import Uploading
 from utils import fill_audio_info, load_files, load_sf2s, save_files, save_sf2s
+
+discord.utils.setup_logging(level=logging.INFO, root=False)
 
 intents = Intents.default()
 intents.message_content = True

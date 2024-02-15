@@ -2,7 +2,7 @@ from glob import glob
 from os.path import isfile, relpath
 from random import choice as random_choice
 from time import time
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, Optional, Set
 
 from discord import Guild, Member, User, VoiceChannel, VoiceClient, VoiceState
 from discord.ext import commands
@@ -21,6 +21,7 @@ from settings import (
 from utils import (
     FFmpegFileOpusAudio,
     FFmpegMidiOpusAudio,
+    ReplayInfo,
     connect_to,
     disconnect,
     ensure_voice,
@@ -30,9 +31,10 @@ from utils import (
 
 
 class Espionage(Cog, name=COG_ESPIONAGE):
-    random_queue: Dict[int, Set[str]]  # {guild_id: {...filename}}
-    # {guild_id: (channel, member, cmd, timestamp, speed)}
-    replay_info: Dict[int, Tuple[VoiceChannel, Member, Optional[str], float, int]]
+    # {guild_id: {...filename}}
+    random_queue: Dict[int, Set[str]]
+    # {guild_id: ReplayInfo}
+    replay_info: Dict[int, ReplayInfo]
 
     def __init__(self, bot: Bot, files: Dict[str, dict], sf2s: Dict[str, str]):
         self.bot = bot
@@ -188,24 +190,17 @@ class Espionage(Cog, name=COG_ESPIONAGE):
         # repeat the file
         self.repeat(channel, member, cmd)
 
-    def reload(self, guild: Guild, rewind: bool = True):
+    def reload(self, guild: Guild):
         if guild.id in self.replay_info:
             # restart the currently playing file
-            channel, member, cmd, timestamp, speed = self.replay_info.pop(guild.id)
-            if rewind:
-                start = 0.0
-            else:
-                # 'timestamp' is calculated starting timestamp at previous rate
-                # 'start' is new starting offset in the file at normal rate
-                rate = 100.0 / speed
-                played = time() - timestamp
-                start = played / rate
-                print(
-                    f"Reloading playback on '{guild.name}' - "
-                    f"was playing for {played:.02f} s "
-                    f"at {speed}%, now starting at {start:.02f} s"
-                )
-            self.repeat(channel, member, cmd, repeated=False, start=start)
+            replay_info = self.replay_info.pop(guild.id)
+            self.repeat(
+                channel=replay_info.channel,
+                member=replay_info.member,
+                cmd=None,
+                repeated=False,
+                replay_info=replay_info,
+            )
 
     def repeat(
         self,
@@ -214,6 +209,7 @@ class Espionage(Cog, name=COG_ESPIONAGE):
         cmd: Optional[str],
         repeated: bool = False,
         start: float = 0.0,
+        replay_info: ReplayInfo = None,
     ):
         # get the currently connected voice client
         voice: VoiceClient = channel.guild.voice_client
@@ -222,6 +218,19 @@ class Espionage(Cog, name=COG_ESPIONAGE):
         if not voice:
             return
         guild_id = channel.guild.id
+
+        # calculate starting offset from ReplayInfo
+        if replay_info:
+            # 'timestamp' is calculated starting timestamp at previous rate
+            # 'start' is new starting offset in the file at normal rate
+            rate = 100.0 / replay_info.speed
+            played = time() - replay_info.timestamp
+            start = played / rate
+            print(
+                f"Reloading playback on '{channel.guild.name}' - "
+                f"was playing for {played:.02f} s "
+                f"at {replay_info.speed}%, now starting at {start:.02f} s"
+            )
 
         # store cmd for usage in repeat(e)
         cmd_orig = cmd
@@ -232,7 +241,13 @@ class Espionage(Cog, name=COG_ESPIONAGE):
         # default value
         pack = False
 
-        if random:
+        if replay_info:
+            # override command data from ReplayInfo
+            cmd = replay_info.cmd
+            cmd_name = replay_info.cmd_name
+            cmd_orig = replay_info.cmd_orig
+            random = cmd == RANDOM_FILE
+        elif random:
             # "random" specified as cmd, change to a random command dict
             cmd_name, cmd = self.safe_random(guild_id, list(self.files.items()))
         elif cmd and cmd != ESPIONAGE_FILE:
@@ -301,21 +316,25 @@ class Espionage(Cog, name=COG_ESPIONAGE):
         if not cmd:
             return
 
-        midi = "midi" in cmd and cmd["midi"]
-
-        rate = None
-        speed: int
-        speed = cmd["speed"] if "speed" in cmd else 100
-        if speed != 100 and "info" in cmd:
-            rate = cmd["info"]["sample_rate"]
-            rate = rate * speed / 100
-            rate = int(rate)
-        elif speed != 100 and midi:
-            rate = 44100 * speed / 100
-            rate = int(rate)
-        if speed != 100 and start:
-            # adjust starting position for the current playback speed
-            start = start / (speed / 100.0)
+        if isinstance(cmd, dict):
+            midi = "midi" in cmd and cmd["midi"]
+            rate = None
+            speed: int
+            speed = cmd["speed"] if "speed" in cmd else 100
+            if speed != 100 and "info" in cmd:
+                rate = cmd["info"]["sample_rate"]
+                rate = rate * speed / 100
+                rate = int(rate)
+            elif speed != 100 and midi:
+                rate = 44100 * speed / 100
+                rate = int(rate)
+            if speed != 100 and start:
+                # adjust starting position for the current playback speed
+                start = start / (speed / 100.0)
+        else:
+            midi = False
+            speed = 100
+            rate = None
 
         if LOG_CSV:
             with open(LOG_CSV, "a+") as f:
@@ -354,13 +373,15 @@ class Espionage(Cog, name=COG_ESPIONAGE):
             f"speed: {speed}%"
         )
         # update playback info for replays
-        self.replay_info[channel.guild.id] = (
-            channel,
-            member,
-            cmd_orig,
+        self.replay_info[channel.guild.id] = ReplayInfo(
+            channel=channel,
+            member=member,
+            cmd=cmd,
+            cmd_name=cmd_name,
+            cmd_orig=cmd_orig,
             # calculate starting timestamp according to current playback speed
-            time() - start,
-            speed,
+            timestamp=time() - start,
+            speed=speed,
         )
 
         if cmd_name:

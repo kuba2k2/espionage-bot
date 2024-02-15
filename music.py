@@ -5,7 +5,7 @@ from discord.ext.commands import Bot, Cog, Context
 
 from espionage import Espionage
 from settings import COG_ESPIONAGE, COG_MUSIC, RANDOM_FILE
-from utils import ensure_command, ensure_voice, save_files
+from utils import check_playing_cmd, ensure_command, ensure_voice, save_files
 
 
 class Music(Cog, name=COG_MUSIC):
@@ -60,23 +60,18 @@ class Music(Cog, name=COG_MUSIC):
     @commands.command()
     async def speed(self, ctx: Context, name: str = None, speed: str = None):
         """Set the playing speed (percent)."""
-        if ctx.guild and ctx.channel.guild.voice_client:
-            replay_info = self.espionage.replay_info.get(ctx.channel.guild.id, None)
-            if replay_info and name and not speed:
-                speed = name
-                _, _, name, _, _ = replay_info
-
+        name, speed = await check_playing_cmd(ctx, self.espionage, name, speed)
+        if not name:
+            await ctx.send(
+                ":question: Usage: `!speed <command name> <speed%>`.",
+                delete_after=3,
+            )
+            return
         if not speed:
-            if name and name in self.files:
-                await ctx.send(
-                    ":question: Usage: `!speed [command name] <speed%>`.",
-                    delete_after=3,
-                )
-            else:
-                await ctx.send(
-                    ":question: Usage: `!speed <command name> <speed%>`.",
-                    delete_after=3,
-                )
+            await ctx.send(
+                ":question: Usage: `!speed [command name] <speed%>`.",
+                delete_after=3,
+            )
             return
 
         is_percent = False
@@ -126,7 +121,7 @@ class Music(Cog, name=COG_MUSIC):
         await ctx.send(f":v: Speed of `!{name}` set to {speed}%.", delete_after=3)
 
         if ctx.guild and ctx.guild.voice_client:
-            self.espionage.reload(guild=ctx.guild, rewind=False)
+            self.espionage.reload(guild=ctx.guild)
 
     @commands.command()
     async def sf(self, ctx: Context, name: str = None, *sf2_names):
