@@ -29,7 +29,7 @@ class Equalizer(Cog, name=COG_EQUALIZER):
         (name,) = await check_playing_cmd(ctx, self.espionage, None)
         cmd = await ensure_command(ctx, name, self.files)
 
-        if "filters" not in cmd:
+        if "filters" not in cmd and "speed" not in cmd:
             await ctx.send(
                 f":question: No filters added to `!{name}`.\n"
                 "Use `!help eq` to see available filters.",
@@ -39,10 +39,12 @@ class Equalizer(Cog, name=COG_EQUALIZER):
         lines = [
             f":v: Filters added to `!{name}`:",
         ]
-        eq: List[str] = cmd["filters"]
+        if "speed" in cmd:
+            lines.append(f"- {cmd['speed']}% Speed")
+        eq: List[str] = cmd.get("filters", [])
         for line in eq:
             title, _, _ = line.partition("#")
-            lines.append(f"- `{title}`")
+            lines.append(f"- {title}")
         lines.append("Use `!eq help` to see available filters.")
         lines.append("Use `!eq reset` to clear all filters.")
         await ctx.send("\n".join(lines))
