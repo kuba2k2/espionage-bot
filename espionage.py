@@ -317,6 +317,7 @@ class Espionage(Cog, name=COG_ESPIONAGE):
             return
 
         filters = []
+        extra_opts = []
         if isinstance(cmd, dict):
             midi = "midi" in cmd and cmd["midi"]
             rate = None
@@ -339,7 +340,10 @@ class Espionage(Cog, name=COG_ESPIONAGE):
                     filters.append("aformat=channel_layouts=2")
             for line in cmd.get("filters", []):
                 _, _, value = line.partition("#")
-                filters.append(value)
+                if value.startswith("-"):
+                    extra_opts.append(value)
+                else:
+                    filters.append(value)
         else:
             midi = False
             speed = 100
@@ -368,9 +372,9 @@ class Espionage(Cog, name=COG_ESPIONAGE):
             sf2 = self.sf2s[sf2] if sf2 in self.sf2s else random_choice(sf2s)
             sf2_name = real_filename(sf2)
             extra_info = f"with SF2 '{sf2_name}' "
-            source = FFmpegMidiOpusAudio(filename, sf2_name, filters, start)
+            source = FFmpegMidiOpusAudio(filename, sf2_name, filters, extra_opts, start)
         else:
-            source = FFmpegFileOpusAudio(filename, filters, start)
+            source = FFmpegFileOpusAudio(filename, filters, extra_opts, start)
 
         # print log info
         print(
@@ -379,7 +383,8 @@ class Espionage(Cog, name=COG_ESPIONAGE):
             f"{extra_info}- "
             f"start: {start:.02f} s, "
             f"speed: {speed}%, "
-            f"filters: {','.join(filters)}"
+            f"filters: {','.join(filters)}, "
+            f"extra opts: {' '.join(extra_opts)}"
         )
         # update playback info for replays
         self.replay_info[channel.guild.id] = ReplayInfo(

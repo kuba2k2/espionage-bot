@@ -52,6 +52,7 @@ class FFmpegFileOpusAudio(FFmpegOpusAudio):
         self,
         filename: str,
         filters: List[str],
+        extra_opts: List[str],
         start: float,
         *args,
         **kwargs,
@@ -61,6 +62,8 @@ class FFmpegFileOpusAudio(FFmpegOpusAudio):
             opts = "-af " + ",".join(filters)
         else:
             opts = ""
+        if extra_opts:
+            opts += " " + " ".join(extra_opts)
 
         if start:
             opts += f" -ss {start:.02f}"
@@ -74,6 +77,7 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
         filename: str,
         soundfont: str,
         filters: List[str],
+        extra_opts: List[str],
         start: float,
         *args,
         **kwargs,
@@ -95,6 +99,8 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
             opts = "-af " + ",".join(filters)
         else:
             opts = ""
+        if extra_opts:
+            opts += " " + " ".join(extra_opts)
 
         super().__init__(
             "-", before_options=" ".join(before_opts), options=opts, *args, **kwargs
@@ -201,6 +207,8 @@ async def disconnect(voice: VoiceClient):
 
 
 async def ensure_voice(_, ctx: Context):
+    if ctx.voice_client and ctx.voice_client.channel:
+        return
     member: Member = len(ctx.args) > 2 and ctx.args[2] or ctx.author
     if not member.voice:
         await ctx.send(f":x: User is not connected to a voice channel.", delete_after=3)

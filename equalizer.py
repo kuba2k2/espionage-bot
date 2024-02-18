@@ -1,3 +1,5 @@
+import re
+from math import log
 from typing import Dict, List
 
 from discord.ext import commands
@@ -86,6 +88,29 @@ class Equalizer(Cog, name=COG_EQUALIZER):
 
     @eq.command()
     @commands.before_invoke(ensure_playing)
+    async def raw(self, ctx: Context, name: str = None, *opts: str):
+        """Add raw ffmpeg audio filter."""
+        if not name:
+            await ctx.send(
+                ":question: Usage: `!eq raw <filter name> [...option=value]`.",
+                delete_after=3,
+            )
+            return
+        for s in [name, *opts]:
+            if not re.match(r"^[A-Za-z0-9:=._ -]+$", s):
+                await ctx.send(
+                    ":x: Illegal characters in filter string.",
+                    delete_after=3,
+                )
+                return
+        if opts:
+            value = f"{name}={':'.join(opts)}"
+        else:
+            value = name
+        await self.add_filter(ctx, f"Raw: {value}", value)
+
+    @eq.command()
+    @commands.before_invoke(ensure_playing)
     async def volume(self, ctx: Context, volume: str = None):
         """Change audio volume (percent)."""
         if not volume:
@@ -93,3 +118,88 @@ class Equalizer(Cog, name=COG_EQUALIZER):
             return
         volume = await normalize_percent(ctx, volume)
         await self.add_filter(ctx, f"{volume}% Volume", f"volume={volume / 100.0:.02f}")
+
+    @eq.command()
+    @commands.before_invoke(ensure_playing)
+    async def pitch(self, ctx: Context, pitch: str = None):
+        """Change audio pitch (percent)."""
+        if not pitch:
+            await ctx.send(":question: Usage: `!eq pitch <pitch%>`.", delete_after=3)
+            return
+        pitch = await normalize_percent(ctx, pitch)
+        await self.add_filter(
+            ctx,
+            f"{pitch}% Pitch",
+            f"asetrate=44100*{pitch / 100.0:.02f},"
+            f"aresample=44100,"
+            f"atempo=1/{pitch / 100.0:.02f}",
+        )
+
+    @eq.command()
+    @commands.before_invoke(ensure_playing)
+    async def bass(self, ctx: Context, gain: str = None, freq: int = 100):
+        """Change bass gain (percent)."""
+        if not gain:
+            await ctx.send(
+                ":question: Usage: `!eq bass <gain%> [freqHz]`.",
+                delete_after=3,
+            )
+            return
+        gain = await normalize_percent(ctx, gain)
+        gain_db = 10 * log(gain / 100.0, 10)
+        await self.add_filter(
+            ctx,
+            f"{gain}% Bass {freq} Hz",
+            f"bass=g={gain_db:.02f}",
+        )
+
+    @eq.command()
+    @commands.before_invoke(ensure_playing)
+    async def treble(self, ctx: Context, gain: str = None, freq: int = 8000):
+        """Change treble gain (percent)."""
+        if not gain:
+            await ctx.send(
+                ":question: Usage: `!eq treble <gain%> [freqHz]`.",
+                delete_after=3,
+            )
+            return
+        gain = await normalize_percent(ctx, gain)
+        gain_db = 10 * log(gain / 100.0, 10)
+        await self.add_filter(
+            ctx,
+            f"{gain}% Treble {freq} Hz",
+            f"treble=g={gain_db:.02f}",
+        )
+
+    @eq.command()
+    @commands.before_invoke(ensure_playing)
+    async def vibrato(self, ctx: Context, freq: int = 10):
+        """Apply vibrato effect."""
+        if not freq:
+            await ctx.send(
+                ":question: Usage: `!eq vibrato [freqHz=10]`.",
+                delete_after=3,
+            )
+            return
+        await self.add_filter(
+            ctx,
+            f"Vibrato {freq} Hz",
+            f"vibrato=f={freq}",
+        )
+
+    @eq.command()
+    @commands.before_invoke(ensure_playing)
+    async def bitrate(self, ctx: Context, bitrate: str = None):
+        """Apply vibrato effect."""
+        if not bitrate:
+            await ctx.send(
+                ":question: Usage: `!eq bitrate <bitrate>k`.",
+                delete_after=3,
+            )
+            return
+        bitrate = re.sub(r"[^0-9]", "", bitrate)
+        await self.add_filter(
+            ctx,
+            f"{bitrate} kb/s",
+            f"-b:a {bitrate}k",
+        )
