@@ -1,3 +1,5 @@
+import asyncio
+from asyncio import Task
 from glob import glob
 from os.path import isfile, relpath
 from random import choice as random_choice
@@ -35,6 +37,10 @@ class Espionage(Cog, name=COG_ESPIONAGE):
     random_queue: Dict[int, Set[str]]
     # {guild_id: ReplayInfo}
     replay_info: Dict[int, ReplayInfo]
+    # {channel_id: Task}
+    empty_task: Dict[int, Task]
+    # {channel_id}
+    empty_id: Set[int]
 
     def __init__(self, bot: Bot, files: Dict[str, dict], sf2s: Dict[str, str]):
         self.bot = bot
@@ -45,6 +51,8 @@ class Espionage(Cog, name=COG_ESPIONAGE):
             self.add_command(name)
         self.random_queue = {}
         self.replay_info = {}
+        self.empty_task = {}
+        self.empty_id = set()
         print(f"Loaded {len(files)} audio commands.")
 
     def add_command(self, name: str):
@@ -87,8 +95,8 @@ class Espionage(Cog, name=COG_ESPIONAGE):
         after: VoiceState,
     ):
         if member.id == self.bot.user.id:
-            if after.mute or after.afk:
-                # the bot was moved to (or joined) the AFK channel
+            if after.mute:
+                # the bot has been muted (this is not allowed)
                 await member.edit(mute=False)
             if not after.channel:
                 # the bot has been disconnected from a channel
@@ -108,15 +116,54 @@ class Espionage(Cog, name=COG_ESPIONAGE):
         if not after.channel:
             return
 
-        # a user joined the AFK channel
-        if (not before.afk or not before.channel) and after.afk:
-            # play the default file or leave the currently playing file
-            await self.play(
-                channel=member.voice.channel,
-                member=member,
-                cmd=ESPIONAGE_FILE if not member.guild.voice_client else None,
-            )
+        # can't really join AFK channels anymore
+        if after.afk:
             return
+
+        # a user joined an empty channel
+        if len(after.channel.voice_states) == 1:
+            # cancel any pending tasks
+            if before.channel and before.channel.id in self.empty_task:
+                self.empty_task[before.channel.id].cancel()
+                del self.empty_task[before.channel.id]
+            if after.channel.id in self.empty_task:
+                self.empty_task[after.channel.id].cancel()
+                del self.empty_task[after.channel.id]
+            # use a shorter delay if moving between channels
+            delay = 5.0 if not before.channel else 3.0
+
+            async def join_empty():
+                # wait before joining the empty channel
+                print(f"Joining '{after.channel.name}' in {delay} seconds...")
+                await asyncio.sleep(delay)
+                # remove the task reference
+                if after.channel.id in self.empty_task:
+                    del self.empty_task[after.channel.id]
+                # check if the channel is still empty
+                connected = len(after.channel.voice_states)
+                if connected != 1:
+                    print(f"Not joining '{after.channel.name}', {connected} connected")
+                    return
+                print(f"Joining '{after.channel.name}' now...")
+                # remember to leave this channel if someone else joins
+                self.empty_id.add(after.channel.id)
+                # play the default file or leave the currently playing file
+                await self.play(
+                    channel=member.voice.channel,
+                    member=member,
+                    cmd=ESPIONAGE_FILE if not member.guild.voice_client else None,
+                )
+
+            self.empty_task[after.channel.id] = asyncio.create_task(join_empty())
+            return
+
+        # if there are more than 2 users connected (incl. bot), leave
+        if len(after.channel.voice_states) > 2 and after.channel.id in self.empty_id:
+            self.empty_id.remove(after.channel.id)
+            # leave if someone joins the current voice channel
+            if member.guild.voice_client.channel == after.channel:
+                self.leave(member.guild.voice_client)
+                return
 
         # a user joined the channel when the bot was alone
         # for some reason this fixes silence when moving the bot
@@ -202,6 +249,11 @@ class Espionage(Cog, name=COG_ESPIONAGE):
                 replay_info=replay_info,
             )
 
+    def leave(self, voice: VoiceClient):
+        self.bot.loop.create_task(disconnect(voice))
+        self.bot.loop.create_task(self.update_nickname(voice.guild, None))
+        self.replay_info.pop(voice.guild.id, None)
+
     def repeat(
         self,
         channel: VoiceChannel,
@@ -272,9 +324,7 @@ class Espionage(Cog, name=COG_ESPIONAGE):
             loop = True
 
         def leave(e):
-            self.bot.loop.create_task(disconnect(voice))
-            self.bot.loop.create_task(self.update_nickname(voice.guild, None))
-            self.replay_info.pop(voice.guild.id, None)
+            self.leave(voice)
 
         def repeat(e):
             self.repeat(channel, member, cmd=cmd_orig, repeated=True)
