@@ -130,7 +130,7 @@ class Espionage(Cog, name=COG_ESPIONAGE):
                 self.empty_task[after.channel.id].cancel()
                 del self.empty_task[after.channel.id]
             # use a shorter delay if moving between channels
-            delay = 5.0 if not before.channel else 3.0
+            delay = 180.0 if not before.channel else 30.0
 
             async def join_empty():
                 # wait before joining the empty channel
