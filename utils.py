@@ -188,6 +188,8 @@ async def connect_to(channel: VoiceChannel) -> VoiceClient:
     guild: Guild = channel.guild
     voice: VoiceClient = guild.voice_client
     if voice is None or not voice.is_connected():
+        if voice:
+            await voice.disconnect(force=True)
         voice = await channel.connect()
     elif voice.channel != channel:
         await voice.move_to(channel)
