@@ -209,12 +209,20 @@ async def disconnect(voice: VoiceClient):
 
 
 async def ensure_voice(_, ctx: Context):
-    if ctx.voice_client and ctx.voice_client.channel:
-        return
     member: Member = len(ctx.args) > 2 and ctx.args[2] or ctx.author
+    # check if bot is already in a voice channel
+    if ctx.voice_client and ctx.voice_client.channel:
+        # return if the requesting member is not in a voice channel
+        if not member.voice:
+            return
+        # return if the requesting member is in the same channel as bot
+        if member.voice.channel == ctx.voice_client.channel:
+            return
+    # fail if neither the bot nor the member are in a voice channel
     if not member.voice:
         await ctx.send(f":x: User is not connected to a voice channel.", delete_after=3)
         raise CommandError(f"{ctx.author} not connected to a voice channel.")
+    # otherwise connect to the member's voice channel
     await connect_to(member.voice.channel)
 
 
