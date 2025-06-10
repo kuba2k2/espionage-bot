@@ -182,6 +182,7 @@ class ReplayInfo:
     cmd: dict
     cmd_name: str
     cmd_orig: str
+    filename: str
     timestamp: float
     speed: int
 

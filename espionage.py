@@ -313,10 +313,13 @@ class Espionage(Cog, name=COG_ESPIONAGE):
         # set the appropriate filename and loop mode
         if isinstance(cmd, dict):
             # filename is a basename
-            filename = real_filename(cmd)
-            pack = "pack" in cmd and cmd["pack"]
-            if pack:
-                filename = self.safe_random(guild_id, glob(f"{filename}/*"))
+            if not replay_info:
+                filename = real_filename(cmd)
+                pack = "pack" in cmd and cmd["pack"]
+                if pack:
+                    filename = self.safe_random(guild_id, glob(f"{filename}/*"))
+            else:
+                filename = replay_info.filename
             loop = cmd["loop"] or random or pack
         else:
             # only for ESPIONAGE_FILE as cmd - already absolute or relative to cwd
@@ -429,7 +432,7 @@ class Espionage(Cog, name=COG_ESPIONAGE):
 
         # print log info
         print(
-            f"Playing command '{cmd_name}' "
+            f"Playing command '{cmd_name}', file '{filename}' "
             f"on {channel.guild} "
             f"{extra_info}- "
             f"start: {start:.02f} s, "
@@ -444,6 +447,7 @@ class Espionage(Cog, name=COG_ESPIONAGE):
             cmd=cmd,
             cmd_name=cmd_name,
             cmd_orig=cmd_orig,
+            filename=filename,
             # calculate starting timestamp according to current playback speed
             timestamp=time() - start,
             speed=speed,
