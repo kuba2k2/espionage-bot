@@ -106,31 +106,20 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
             "-", before_options=" ".join(before_opts), options=opts, *args, **kwargs
         )
 
-    def _get_cmd(self, super_args) -> str:
-        if self.impl == MIDI_IMPL_FLUIDSYNTH:
-            args = self._get_args_fs()
-        elif self.impl == MIDI_IMPL_TIMIDITY:
-            args = self._get_args_tm()
-        else:
-            return " ".join(super_args)
-        args.append("|")
-        args.extend(super_args)
-        return " ".join(args)
-
     def _get_args_fs(self) -> List[str]:
         args = [
             "fluidsynth",
-            "-a alsa",  # The audio driver to use
-            "-T raw",  # Audio file type for fast rendering or aufile driver
-            "-O s32",  # Audio file format for fast rendering or aufile driver
-            "-E little",  # Audio file endian for fast rendering or aufile driver
-            "-r 44100",  # Set the sample rate
-            "-L 1",  # The number of stereo audio channels
-            "-g 1.0",  # Set the master gain
-            "-F -",  # Render MIDI file to raw audio data and store in [file]
+            *("-a", "alsa"),  # The audio driver to use
+            *("-T", "raw"),  # Audio file type for fast rendering or aufile driver
+            *("-O", "s32"),  # Audio file format for fast rendering or aufile driver
+            *("-E", "little"),  # Audio file endian for fast rendering or aufile driver
+            *("-r", "44100"),  # Set the sample rate
+            *("-L", "1"),  # The number of stereo audio channels
+            *("-g", "1.0"),  # Set the master gain
+            *("-F", "-"),  # Render MIDI file to raw audio data and store in [file]
             "-q",  # Do not print welcome message or other informational output
-            quote(self.soundfont),
-            quote(self.filename),
+            self.soundfont,
+            self.filename,
         ]
         if MIDI_MUTE_124:
             args.append(MIDI_MUTE_124_FILE)
@@ -148,19 +137,32 @@ class FFmpegMidiOpusAudio(FFmpegOpusAudio):
         opts = "\\n".join(opts)
         args = [
             "timidity",
-            f'-x "{opts}"',  # Configure TiMidity++ with str
+            *("-x", opts),  # Configure TiMidity++ with str
             "-Ow",  # Generate RIFF WAVE format output
-            "-o -",  # Place output on file
-            quote(self.filename),
+            *("-o", "-"),  # Place output on file
+            self.filename,
         ]
         return args
 
     def _spawn_process(self, args, **subprocess_kwargs):
         process = None
         try:
-            cmdline = self._get_cmd(args)
+            if self.impl == MIDI_IMPL_FLUIDSYNTH:
+                midi_cmd = self._get_args_fs()
+            elif self.impl == MIDI_IMPL_TIMIDITY:
+                midi_cmd = self._get_args_tm()
+            else:
+                return None
+            midi_process = subprocess.Popen(
+                midi_cmd,
+                creationflags=CREATE_NO_WINDOW,
+                stdout=subprocess.PIPE,
+            )
+            subprocess_kwargs["stdin"] = midi_process.stdout
             process = subprocess.Popen(
-                cmdline, creationflags=CREATE_NO_WINDOW, shell=True, **subprocess_kwargs
+                args,
+                creationflags=CREATE_NO_WINDOW,
+                **subprocess_kwargs,
             )
         except FileNotFoundError:
             executable = args.partition(" ")[0] if isinstance(args, str) else args[0]
