@@ -400,7 +400,7 @@ class Espionage(Cog, name=COG_ESPIONAGE):
             speed = 100
 
         if LOG_CSV:
-            with open(LOG_CSV, "a+") as f:
+            with open(LOG_CSV, "a+", encoding="utf-8") as f:
                 fields = [
                     str(int(time())),
                     str(guild_id),

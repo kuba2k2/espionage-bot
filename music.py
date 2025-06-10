@@ -86,7 +86,7 @@ class Music(Cog, name=COG_MUSIC):
         cmd = await ensure_command(ctx, name, self.files)
         pack = "pack" in cmd and cmd["pack"]
         midi = "midi" in cmd and cmd["midi"]
-        if pack:
+        if pack and not midi:
             await ctx.send(
                 f":x: :file_folder: `!{name}` is a music pack. Speed changing is not possible.",
                 delete_after=10,
@@ -113,44 +113,40 @@ class Music(Cog, name=COG_MUSIC):
             self.espionage.reload(guild=ctx.guild)
 
     @commands.command()
-    async def sf(self, ctx: Context, name: str = None, *sf2_names):
+    async def sf(self, ctx: Context, name: str = None, sf2: str = None):
         """List or set SoundFonts for MIDI files."""
-        if not name:
+        name, sf2 = await check_playing_cmd(ctx, self.espionage, name, sf2)
+        if not name or not sf2:
             lines = [
                 ":v: Available SoundFonts:",
             ]
-            max_length = max(len(name) for name in self.sf2s.keys())
+            max(len(name) for name in self.sf2s.keys())
             for name, sf2 in self.sf2s.items():
-                padding = " " * (max_length - len(name) + 2)
-                lines.append(f"  {name} {padding} {sf2['help']}")
+                lines.append(f"- `{name}` - {sf2['help']}")
             lines.append(
-                "\n:question: Use !sf <midi name> <sf name> to apply a SoundFont to a file."
+                "\n:question: Use `!sf <sf name>` to apply a SoundFont to a file."
             )
             lines = "\n".join(lines)
-            await ctx.send(f"```\n{lines}```")
+            await ctx.send(f"{lines}")
+            return
+
+        if sf2 not in self.sf2s:
+            await ctx.send(f"SoundFont {sf2} does not exist.", delete_after=3)
             return
 
         cmd = await ensure_command(ctx, name, self.files)
         midi = "midi" in cmd and cmd["midi"]
         if not midi:
             await ctx.send(
-                f":x: `!{name}` is not and doesn't contain MIDI files.", delete_after=3
+                f":x: `!{name}` is not a MIDI file and doesn't contain any.",
+                delete_after=3,
             )
             return
 
-        if not sf2_names:
-            sf2s = cmd["sf2s"]
-            sf2s = "\n".join(sf2s)
-            await ctx.send(
-                f":v: `!{name}` is currently using these SoundFonts:\n```{sf2s}```"
-            )
-            return
-
-        for sf2 in sf2_names:
-            if sf2 not in self.sf2s:
-                await ctx.send(f"SoundFont {sf2} does not exist.", delete_after=3)
-                return
-
-        cmd["sf2s"] = sf2_names
+        cmd["sf2s"] = [sf2]
         save_files(self.files)
+
         await ctx.send(f":v: Updated SoundFonts for `!{name}`.")
+
+        if ctx.guild and ctx.guild.voice_client:
+            self.espionage.reload(guild=ctx.guild)
