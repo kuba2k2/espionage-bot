@@ -386,8 +386,9 @@ class Espionage(Cog, name=COG_ESPIONAGE):
 
             if rate:
                 filters.append(f"asetrate={rate}")
-                if midi:
-                    filters.append("aformat=channel_layouts=2")
+            if midi:
+                filters.append("aformat=channel_layouts=2")
+
             for line in cmd.get("filters", []):
                 _, _, value = line.partition("#")
                 if value.startswith("-"):
