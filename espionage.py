@@ -313,9 +313,9 @@ class Espionage(Cog, name=COG_ESPIONAGE):
         # set the appropriate filename and loop mode
         if isinstance(cmd, dict):
             # filename is a basename
+            pack = "pack" in cmd and cmd["pack"]
             if not replay_info:
                 filename = real_filename(cmd)
-                pack = "pack" in cmd and cmd["pack"]
                 if pack:
                     filename = self.safe_random(guild_id, glob(f"{filename}/*"))
             else:
@@ -456,8 +456,8 @@ class Espionage(Cog, name=COG_ESPIONAGE):
 
         if cmd_name:
             new_nick = f"!{cmd_name}"
-            if pack:
-                new_nick = f"{PACK_ICON} {new_nick}"
+            # if pack:
+            #     new_nick = f"{PACK_ICON} {new_nick}"
         else:
             new_nick = None
         self.bot.loop.create_task(self.update_nickname(channel.guild, new_nick))
