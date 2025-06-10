@@ -376,16 +376,17 @@ class Espionage(Cog, name=COG_ESPIONAGE):
             rate = None
             speed: int
             speed = cmd["speed"] if "speed" in cmd else 100
-            if speed != 100 and "info" in cmd:
-                rate = cmd["info"]["sample_rate"]
-                rate = rate * speed / 100
-                rate = int(rate)
-            elif speed != 100 and midi:
-                rate = 44100 * speed / 100
-                rate = int(rate)
-            if speed != 100 and start:
-                # adjust starting position for the current playback speed
-                start = start / (speed / 100.0)
+            if speed != 100:
+                if "info" in cmd:
+                    rate = cmd["info"]["sample_rate"]
+                    rate = rate * speed / 100
+                    rate = int(rate)
+                else:  # for MIDI and music packs
+                    rate = 44100 * speed / 100
+                    rate = int(rate)
+                if start:
+                    # adjust starting position for the current playback speed
+                    start = start / (speed / 100.0)
 
             if rate:
                 filters.append(f"asetrate={rate}")
