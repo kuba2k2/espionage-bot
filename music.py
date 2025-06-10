@@ -57,11 +57,9 @@ class Music(Cog, name=COG_MUSIC):
         save_files(self.files)
 
         if cmd["loop"]:
-            await ctx.send(
-                f":v: :white_check_mark: Looping enabled for `!{name}`.", delete_after=3
-            )
+            await ctx.send(f":v: :white_check_mark: Looping enabled for `!{name}`.")
         else:
-            await ctx.send(f":v: :x: Looping disabled for `!{name}`.", delete_after=3)
+            await ctx.send(f":v: :x: Looping disabled for `!{name}`.")
 
     @commands.command()
     async def speed(self, ctx: Context, name: str = None, speed: str = None):
@@ -109,7 +107,7 @@ class Music(Cog, name=COG_MUSIC):
         # save the command descriptors
         save_files(self.files)
 
-        await ctx.send(f":v: Speed of `!{name}` set to {speed}%.", delete_after=3)
+        await ctx.send(f":v: Speed of `!{name}` set to {speed}%.")
 
         if ctx.guild and ctx.guild.voice_client:
             self.espionage.reload(guild=ctx.guild)
@@ -155,4 +153,4 @@ class Music(Cog, name=COG_MUSIC):
 
         cmd["sf2s"] = sf2_names
         save_files(self.files)
-        await ctx.send(f":v: Updated SoundFonts for `!{name}`.", delete_after=3)
+        await ctx.send(f":v: Updated SoundFonts for `!{name}`.")

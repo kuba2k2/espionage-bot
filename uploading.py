@@ -67,7 +67,6 @@ class Uploading(Cog, name=COG_UPLOADING):
         save_files(self.files)
         await ctx.send(
             f":v: Converted `!{name}` as a music pack. Try uploading more files with `!upload {name}`.",
-            delete_after=10,
         )
 
     @commands.command()
@@ -224,7 +223,6 @@ class Uploading(Cog, name=COG_UPLOADING):
                 save_sf2s(self.sf2s)
                 await ctx.send(
                     f":v: Added **{sf2_name}**! Use `!sf <midi name> {name}` to apply the SoundFont.",
-                    delete_after=10,
                 )
                 return
 
@@ -290,7 +288,7 @@ class Uploading(Cog, name=COG_UPLOADING):
         elif invalid_count:
             text += f"\n:x: **{invalid_count}** file(s) were unrecognized."
 
-        await ctx.send(text, delete_after=10)
+        await ctx.send(text)
 
     @commands.command()
     async def aremove(self, ctx: Context, name: str = None):
@@ -315,7 +313,7 @@ class Uploading(Cog, name=COG_UPLOADING):
 
         # save the command descriptors
         save_files(self.files)
-        await ctx.send(f":v: Command `!{name}` removed.", delete_after=3)
+        await ctx.send(f":v: Command `!{name}` removed.")
 
     @commands.command()
     async def description(self, ctx: Context, name: str = None, *args):
@@ -337,6 +335,4 @@ class Uploading(Cog, name=COG_UPLOADING):
 
         # save the command descriptors
         save_files(self.files)
-        await ctx.send(
-            f":v: Description of `!{name}` set to `{description}`.", delete_after=3
-        )
+        await ctx.send(f":v: Description of `!{name}` set to `{description}`.")

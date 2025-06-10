@@ -32,7 +32,7 @@ class Equalizer(Cog, name=COG_EQUALIZER):
         if "filters" not in cmd and "speed" not in cmd:
             await ctx.send(
                 f":question: No filters added to `!{name}`.\n"
-                "Use `!help eq` to see available filters.",
+                "Use `!eq help` to see available filters.",
                 delete_after=3,
             )
             return
@@ -62,11 +62,15 @@ class Equalizer(Cog, name=COG_EQUALIZER):
         await ctx.send(
             f":v: Filter `{title}` added to `!{name}`.\n"
             "Use `!eq reset` to clear all filters.",
-            delete_after=10,
         )
 
         if ctx.guild and ctx.guild.voice_client:
             self.espionage.reload(guild=ctx.guild)
+
+    @eq.command()
+    async def help(self, ctx: Context):
+        """See available filters."""
+        await ctx.send_help(self.eq)
 
     @eq.command()
     @commands.before_invoke(ensure_playing)
@@ -82,7 +86,6 @@ class Equalizer(Cog, name=COG_EQUALIZER):
         await ctx.send(
             f":v: Cleared all filters of `!{name}`.\n"
             "Use `!help eq` to see available filters.",
-            delete_after=3,
         )
 
         if ctx.guild and ctx.guild.voice_client:

@@ -227,7 +227,8 @@ async def ensure_voice(_, ctx: Context):
 
 
 async def ensure_playing(_, ctx: Context):
-    if not ctx.guild.voice_client:
+    voice: VoiceClient = ctx.guild.voice_client
+    if not voice or not voice.is_connected():
         await ctx.send(f":x: Not playing in a voice channel.", delete_after=3)
         raise CommandError(f"Bot not connected to a voice channel.")
 
