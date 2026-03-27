@@ -1,6 +1,6 @@
 -i https://pypi.org/simple
-discord.py[voice]~=2.6.4
-discord.py~=2.6.4
+discord.py[voice]~=2.7.1
+discord.py~=2.7.1
 patool~=1.12
 python-dotenv~=0.19.0
 python-magic-bin~=0.4.14; sys_platform == 'win32'
